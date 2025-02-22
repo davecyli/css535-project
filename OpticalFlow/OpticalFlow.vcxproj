@@ -79,6 +79,12 @@
   <ItemGroup>
     <CudaCompile Include="test.cu" />
   </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="profiler.cu" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="profiler.h" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
     <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 12.8.targets" />
