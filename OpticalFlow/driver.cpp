@@ -27,7 +27,7 @@ int main(int argc, char* argv[]) {
 
     // Create a 1D Gaussian kernel
     int kernelSizeSmoothing = 25;
-    float sigma = 3.2;
+    float sigma = 3.2f;
     Kernel* gaussianKernel = Kernel::generateGaussian(kernelSizeSmoothing, sigma);
 
     // Create a 1D Derivative kernel
@@ -52,7 +52,7 @@ int main(int argc, char* argv[]) {
 
         smoothedTXY = smooth.convolveXY(smoothedT);
         if (!smoothedTXY.empty()) {
-            imshow("Image smoothed in XY", smoothedTXY);
+            imshow("Smoothed TXY", smoothedTXY);
             waitKey(1);
         }
 
@@ -60,7 +60,7 @@ int main(int argc, char* argv[]) {
         if (!derivativeT.empty()) {
             normalize(derivativeT, derivativeDisplay, 0, 255, cv::NORM_MINMAX);
             derivativeDisplay.convertTo(derivativeDisplay, CV_8U); // Convert to 8-bit
-            imshow("Derivative XY", derivativeDisplay);
+            imshow("Derivative T", derivativeDisplay);
             waitKey(1);
         }
 
@@ -68,13 +68,12 @@ int main(int argc, char* argv[]) {
         if (!derivativeTXY.empty()) {
             normalize(derivativeTXY, derivativeDisplay, 0, 255, cv::NORM_MINMAX);
             derivativeDisplay.convertTo(derivativeDisplay, CV_8U); // Convert to 8-bit
-            imshow("Derivative XYT", derivativeDisplay);
+            imshow("Derivative TXY", derivativeDisplay);
             waitKey(1);
         }
     }
 
     // Cleanup
-    delete gaussianKernel;
     capture.release();
     destroyAllWindows();
 
