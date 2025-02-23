@@ -1,6 +1,10 @@
 #include "convolution.h"
 
-Mat Convolution::convolveXY(const Mat& frame, const Kernel& kernel) {
+Convolution::Convolution(const Kernel& kernel) : kernel(kernel), buffer(kernel.getSize()) {}
+
+Mat Convolution::convolveXY(const Mat& frame) {
+    if (frame.empty()) return frame;
+
     int rows = frame.rows;
     int cols = frame.cols;
     int halfKernel = kernel.getSize() / 2;
@@ -48,15 +52,32 @@ Mat Convolution::convolveXY(const Mat& frame, const Kernel& kernel) {
     return convolved;
 }
 
-Mat Convolution::convolveT(const Kernel& kernel, const deque<Mat>& frames) {
-    int rows = frames.front().rows;
-    int cols = frames.front().cols;
-    Mat convolved = Mat::zeros(rows, cols, frames.front().type());
+Mat Convolution::convolveT(const Mat& frame) {
 
-    int index = 0;
-    for (const Mat& frame : frames) {
-        convolved += frame * kernel.get(index++);
+    if (frame.empty()) return frame;
+
+    // Copy and convert to grayscale and float if needed
+    Mat converted;
+    if (frame.channels() == 3) {
+        cvtColor(frame, converted, COLOR_BGR2GRAY);
+        converted.convertTo(converted, CV_32F, 1.0 / 255.0);
+    }
+    else {
+        converted = frame.clone();
     }
 
+    // Add to buffer
+    buffer.enqueue(converted);
+
+    // If there are enough frames for a convolution in t, convolve
+    Mat convolved;
+    if (buffer.isFull()) {
+        convolved = Mat::zeros(converted.rows, converted.cols, converted.type());
+
+        int index = 0;
+        for (int i = 0; i < buffer.getSize(); i++) {
+            convolved += buffer[i] * kernel.get(index++);
+        }
+    }
     return convolved;
 }

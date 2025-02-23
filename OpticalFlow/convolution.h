@@ -3,14 +3,20 @@
 
 #include <opencv2/opencv.hpp>
 #include "kernel.h"
+#include "circularBuffer.h"
 
 using namespace cv;
 using namespace std;
 
 class Convolution {
 public:
-    Mat convolveXY(const Mat& frame, const Kernel& kernel);
-    Mat convolveT(const Kernel& kernel, const deque<Mat>& frames);
+    Convolution(const Kernel& kernel);
+
+    Mat convolveXY(const Mat& frame);
+    Mat convolveT(const Mat& frame);
+private:
+    CircularBuffer buffer;
+    const Kernel kernel;
 };
 
 #endif // CONVOLUTION_H
