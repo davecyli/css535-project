@@ -20,8 +20,8 @@ CFLAGS = /EHsc /I$(OPENCV_INCLUDE)
 LFLAGS = /LIBPATH:$(OPENCV_LIB) $(OPENCV_LIBS)
 
 # Source, object, and target names for OpenCV part
-OCV_SRCS = driver.cpp convolution.cpp kernel.cpp circularBuffer.cpp
-OCV_OBJS = driver.obj convolution.obj kernel.obj circularBuffer.obj
+OCV_SRCS = driver.cpp kernel.cpp convolution.cpp spatialConvolution.cpp temporalConvolution.cpp circularBuffer.cpp
+OCV_OBJS = driver.obj kernel.obj convolution.obj spatialConvolution.obj temporalConvolution.obj circularBuffer.obj
 OCV_TARGET = driver.exe
 
 # ----- CUDA Build Settings -----
@@ -47,14 +47,20 @@ $(OCV_TARGET): $(OCV_OBJS)
 	copy $(OPENCV_FFMPEG_DLL) .
 	copy $(OPENCV_MSMF_DLL) .
 
-driver.obj: driver.cpp convolution.h kernel.h
+driver.obj: driver.cpp spatialConvolution.h temporalConvolution.h
 	$(CC) $(CFLAGS) /c driver.cpp
-
-convolution.obj: convolution.cpp convolution.h
-	$(CC) $(CFLAGS) /c convolution.cpp
 
 kernel.obj: kernel.cpp kernel.h
 	$(CC) $(CFLAGS) /c kernel.cpp
+	
+convolution.obj: convolution.cpp convolution.h
+	$(CC) $(CFLAGS) /c convolution.cpp
+	
+spatialConvolution.obj: spatialConvolution.cpp spatialConvolution.h
+	$(CC) $(CFLAGS) /c spatialConvolution.cpp
+	
+temporalConvolution.obj: temporalConvolution.cpp temporalConvolution.h
+	$(CC) $(CFLAGS) /c temporalConvolution.cpp
 
 circularBuffer.obj: circularBuffer.cpp circularBuffer.h
 	$(CC) $(CFLAGS) /c circularBuffer.cpp
