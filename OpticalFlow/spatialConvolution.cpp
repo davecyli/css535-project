@@ -17,17 +17,15 @@ Mat SpatialConvolution::convolve(const Mat& frame, const Kernel& kernel, const b
     int cols = frame.cols;
     int halfKernel = kernel.getSize() / 2; // For indexing
 
-    // Output matrix
-    Mat convolved(rows, cols, frame.type());
-
-    /*
     Mat inputFrame = frame;
     // Transpose for Y convolution
     if (!isX) {
         transpose(inputFrame, inputFrame);
         std::swap(rows, cols);
     }
-    */
+
+    // Output matrix
+    Mat convolved(rows, cols, frame.type());
 
     for (int i = 0; i < rows; ++i) {
         for (int j = 0; j < cols; ++j) {
@@ -36,18 +34,17 @@ Mat SpatialConvolution::convolve(const Mat& frame, const Kernel& kernel, const b
             for (int k = -halfKernel; k <= halfKernel; ++k) {
                 int idx = j + k; // Compute the shifted index
                 if (idx >= 0 && idx < cols) { // Make sure index is within bounds
-                    sum += frame.at<float>(i, idx) * kernel.get(k + halfKernel);
+                    sum += inputFrame.at<float>(i, idx) * kernel.get(k + halfKernel);
                 }
             }
             convolved.at<float>(i, j) = sum; // Store
         }
     }
 
-    /*
     // Transpose back if needed
     if (!isX) {
         transpose(convolved, convolved);
     }
-    */
+
     return convolved;
 }
