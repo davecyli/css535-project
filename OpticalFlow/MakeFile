@@ -5,7 +5,87 @@ NVCC = nvcc
 TARGET = test.exe
 
 # Object files
-OBJ = test.obj profiler.obj
+OBJ = test.obj profiler.obj#------------------------------------------------------------
+# Combined Makefile for OpenCV (cl) and CUDA (nvcc) projects
+#------------------------------------------------------------
+
+# ----- OpenCV / C++ Build Settings -----
+# Compiler and paths for OpenCV
+CC = cl
+
+OPENCV_INCLUDE = C:\opencv\build\include
+OPENCV_LIB     = C:\opencv\build\x64\vc16\lib
+OPENCV_LIBS    = opencv_world4110.lib
+
+# Paths to required DLLs (to be copied after linking)
+OPENCV_DLL         = C:\opencv\build\x64\vc16\bin\opencv_world4110.dll
+OPENCV_FFMPEG_DLL  = C:\opencv\build\x64\vc16\bin\opencv_videoio_ffmpeg4110_64.dll
+OPENCV_MSMF_DLL    = C:\opencv\build\x64\vc16\bin\opencv_videoio_msmf4110_64.dll
+
+# Compiler and linker flags for OpenCV part
+CFLAGS = /EHsc /I$(OPENCV_INCLUDE)
+LFLAGS = /LIBPATH:$(OPENCV_LIB) $(OPENCV_LIBS)
+
+# Source, object, and target names for OpenCV part
+OCV_SRCS = driver.cpp kernel.cpp convolution.cpp spatialConvolution.cpp temporalConvolution.cpp circularBuffer.cpp
+OCV_OBJS = driver.obj kernel.obj convolution.obj spatialConvolution.obj temporalConvolution.obj circularBuffer.obj
+OCV_TARGET = driver.exe
+
+# ----- CUDA Build Settings -----
+# CUDA compiler
+NVCC = nvcc
+# Suppress the deprecation warning for offline compilation for older architectures
+NVCCFLAGS = -Wno-deprecated-gpu-targets
+
+# Source, object, and target names for CUDA part
+CUDA_SRCS = test.cu profiler.cu
+CUDA_OBJS = test.obj profiler.obj
+CUDA_TARGET = test.exe
+
+# ----- Default Target -----
+# Build both executables
+all: $(OCV_TARGET) $(CUDA_TARGET)
+
+# ----- OpenCV (CPU) Build Rules -----
+$(OCV_TARGET): $(OCV_OBJS)
+	$(CC) $(OCV_OBJS) /Fe:$(OCV_TARGET) /link $(LFLAGS)
+	rem Copy the required DLLs to the working directory
+	copy $(OPENCV_DLL) .
+	copy $(OPENCV_FFMPEG_DLL) .
+	copy $(OPENCV_MSMF_DLL) .
+
+driver.obj: driver.cpp spatialConvolution.h temporalConvolution.h
+	$(CC) $(CFLAGS) /c driver.cpp
+
+kernel.obj: kernel.cpp kernel.h
+	$(CC) $(CFLAGS) /c kernel.cpp
+	
+convolution.obj: convolution.cpp convolution.h
+	$(CC) $(CFLAGS) /c convolution.cpp
+	
+spatialConvolution.obj: spatialConvolution.cpp spatialConvolution.h
+	$(CC) $(CFLAGS) /c spatialConvolution.cpp
+	
+temporalConvolution.obj: temporalConvolution.cpp temporalConvolution.h
+	$(CC) $(CFLAGS) /c temporalConvolution.cpp
+
+circularBuffer.obj: circularBuffer.cpp circularBuffer.h
+	$(CC) $(CFLAGS) /c circularBuffer.cpp
+
+# ----- CUDA Build Rules -----
+$(CUDA_TARGET): $(CUDA_OBJS)
+	$(NVCC) $(NVCCFLAGS) -o $(CUDA_TARGET) $(CUDA_OBJS)
+
+test.obj: test.cu
+	$(NVCC) $(NVCCFLAGS) -c test.cu -o test.obj
+
+profiler.obj: profiler.cu
+	$(NVCC) $(NVCCFLAGS) -c profiler.cu -o profiler.obj
+
+# ----- Clean Target -----
+clean:
+	del $(OCV_TARGET) $(CUDA_TARGET) *.obj *.lib *.exe *.exp
+
 
 
 # Default build rule
