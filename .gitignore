@@ -19,6 +19,7 @@
 *.exp
 *.obj
 *.lib
+*.dll
 
 # Mono auto generated files
 mono_crash.*
