@@ -1,5 +1,5 @@
 #------------------------------------------------------------
-# Combined Makefile for OpenCV (cl) projects
+# Make file for driver.cpp (OPENCV)
 #------------------------------------------------------------
 
 # ----- OpenCV / C++ Build Settings -----

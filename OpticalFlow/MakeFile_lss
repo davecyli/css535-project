@@ -1,5 +1,5 @@
 #------------------------------------------------------------
-# Combined Makefile for OpenCV (cl) projects
+# Make file for least_squares_test.cpp (OPENCV)
 #------------------------------------------------------------
 
 # ----- OpenCV / C++ Build Settings -----
