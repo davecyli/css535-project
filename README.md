@@ -5,6 +5,7 @@ Repo for the CSS535 Optical Flow CUDA project
 - VS 2022
 - Windows 11
 - CUDA 12.8.0
+- Rerun 
 
 ## To test profiler
 - Open a `Visual Studio 2022 Developer Command Prompt`
@@ -38,3 +39,31 @@ Navigate to the OpticalFlow folder then in a VS 2022 Developers CMD:
 ```
 nmake clean
 ```
+
+## Pixi package management
+- Pixi is a package management tool for developers and allows developers to install libraries and applications in a reproducible way.
+
+## Installing Pixi
+```
+powershell -ExecutionPolicy ByPass -c "irm -useb https://pixi.sh/install.ps1 | iex"
+```
+
+## Building the test main.cpp
+From within the project root directory
+```
+pixi run start
+```
+
+## Rerun
+A multimodal data logger and visualizer
+
+## Setting up Rerun
+### Web Browser
+Open this in a web browser : https://rerun.io/viewer
+
+### Command Line
+- Navigate to assets at this link https://github.com/rerun-io/rerun/releases/
+- Download the executable `rerun-cli-0.22.1-x86_64-pc-windows-msvc.exe` or similar
+- Rename executable to `rerun.exe`
+- Add path of folder or exe to windows environment path
+
