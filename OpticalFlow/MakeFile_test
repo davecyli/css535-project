@@ -1,0 +1,32 @@
+#------------------------------------------------------------
+# Makefile for CUDA (nvcc) projects
+#------------------------------------------------------------
+
+# ----- CUDA Build Settings -----
+# CUDA compiler
+NVCC = nvcc
+# Suppress the deprecation warning for offline compilation for older architectures
+NVCCFLAGS = -Wno-deprecated-gpu-targets
+
+# Source, object, and target names for CUDA part
+CUDA_SRCS = test.cu profiler.cu
+CUDA_OBJS = test.obj profiler.obj
+CUDA_TARGET = test.exe
+
+# ----- Default Target -----
+# Build both executables
+all: $(CUDA_TARGET)
+
+# ----- CUDA Build Rules -----
+$(CUDA_TARGET): $(CUDA_OBJS)
+	$(NVCC) $(NVCCFLAGS) -o $(CUDA_TARGET) $(CUDA_OBJS)
+
+test.obj: test.cu
+	$(NVCC) $(NVCCFLAGS) -c test.cu -o test.obj
+
+profiler.obj: profiler.cu
+	$(NVCC) $(NVCCFLAGS) -c profiler.cu -o profiler.obj
+
+# ----- Clean Target -----
+clean:
+	del $(CUDA_TARGET) *.obj *.lib *.exe *.exp

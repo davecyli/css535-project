@@ -1,0 +1,47 @@
+#------------------------------------------------------------
+# Combined Makefile for OpenCV (cl) projects
+#------------------------------------------------------------
+
+# ----- OpenCV / C++ Build Settings -----
+# Compiler and paths for OpenCV
+CC = cl
+
+OPENCV_INCLUDE = C:\opencv\build\include
+OPENCV_LIB     = C:\opencv\build\x64\vc16\lib
+OPENCV_LIBS    = opencv_world4110.lib
+
+# Paths to required DLLs (to be copied after linking)
+OPENCV_DLL         = C:\opencv\build\x64\vc16\bin\opencv_world4110.dll
+OPENCV_FFMPEG_DLL  = C:\opencv\build\x64\vc16\bin\opencv_videoio_ffmpeg4110_64.dll
+OPENCV_MSMF_DLL    = C:\opencv\build\x64\vc16\bin\opencv_videoio_msmf4110_64.dll
+
+# Compiler and linker flags for OpenCV part
+CFLAGS = /EHsc /I$(OPENCV_INCLUDE) /I.
+LFLAGS = /LIBPATH:$(OPENCV_LIB) $(OPENCV_LIBS)
+
+# Source, object, and target names for OpenCV part
+OCV_SRCS = least_squares_test.cpp
+OCV_OBJS = least_squares_test.obj least_squares_solver.obj
+OCV_TARGET = least_squares_test.exe
+
+# ----- Default Target -----
+# Build both executables
+all: $(OCV_TARGET)
+
+# ----- OpenCV (CPU) Build Rules -----
+$(OCV_TARGET): $(OCV_OBJS)
+	$(CC) $(OCV_OBJS) /Fe:$(OCV_TARGET) /link $(LFLAGS)
+	rem Copy the required DLLs to the working directory
+	copy $(OPENCV_DLL) .
+	copy $(OPENCV_FFMPEG_DLL) .
+	copy $(OPENCV_MSMF_DLL) .
+
+least_squares_test.obj: least_squares_test.cpp least_squares_solver.h
+	$(CC) $(CFLAGS) /c least_squares_test.cpp
+
+least_squares_solver.obj: least_squares_solver.cpp least_squares_solver.h
+	$(CC) $(CFLAGS) /c least_squares_solver.cpp
+
+# ----- Clean Target -----
+clean:
+	del $(OCV_TARGET) *.obj *.lib *.exe *.exp

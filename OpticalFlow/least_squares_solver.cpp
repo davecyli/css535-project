@@ -68,5 +68,3 @@ void LeastSquaresSolver::computeOpticalFlow(const Mat& Ix, const Mat& Iy, const 
         }
     }
 }
-
-int main(){}
