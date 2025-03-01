@@ -15,16 +15,19 @@ using namespace std;
 using namespace cv;
 
 int main(int argc, char* argv[]) {
+    string videoFilePath = "";
     // Check input validity
     if (argc < 2) {
-        std::cerr << "Usage: " << argv[0] << " <video file path>" << std::endl;
-        return 1;
+        std::cout << "Enter video file path: ";
+        std::getline(std::cin, videoFilePath);
+    }
+    else {
+        videoFilePath = argv[1];
     }
 
-    string video = argv[1];
-    VideoCapture capture(video);
+    VideoCapture capture(videoFilePath);
     if (!capture.isOpened()) {
-        cerr << "Error: Unable to open video file " << video << endl;
+        cerr << "Error: Unable to open video file " << videoFilePath << endl;
         return -1;
     }
 
