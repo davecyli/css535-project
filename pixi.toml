@@ -14,7 +14,7 @@ depends-on = ["build"]
 [dependencies]
 rerun-sdk = ">=0.10.0"
 cmake = "3.26.4.*"
-eigen = "3.4.0.*"
+eigen = ">=3.4.0,<4"
 
 [feature.build.tasks.configure]
 # Configures CMake

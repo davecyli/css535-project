@@ -53,14 +53,14 @@ FetchContent_Declare(rerun_sdk URL
 FetchContent_MakeAvailable(rerun_sdk)
 
 # Eigen
-Find_Package(Eigen REQUIRED)
+find_package (Eigen3 3.3 REQUIRED NO_MODULE)
 include_directories(${EIGEN_INCLUDE_DIR})
 
 ### OPENCV Driver Project
 add_executable(driver ${OCV_SOURCES} ${OCV_HEADERS})
 set_target_properties(driver PROPERTIES EXCLUDE_FROM_ALL ON)  # Exclude from ALL_BUILD
 target_compile_options(driver PRIVATE  /EHsc)
-target_link_libraries(driver ${OpenCV_LIBS} rerun_sdk Eigen)
+target_link_libraries(driver ${OpenCV_LIBS} rerun_sdk Eigen3::Eigen)
 
 ### Test CUDA Project
 add_executable(test_cuda ${CUDA_SOURCES})
@@ -69,7 +69,6 @@ target_link_libraries(test_cuda PRIVATE rerun_sdk)
 
 #### Example_minimal Project
 add_executable(example_minimal main.cpp)
-
 target_link_libraries(example_minimal PRIVATE rerun_sdk)
 
 # Set the default startup project
