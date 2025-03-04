@@ -69,4 +69,77 @@ void LeastSquaresSolver::computeOpticalFlow(const Mat& Ix, const Mat& Iy, const 
     }
 }
 
-int main(){}
+void runTest(const string& testName, const Mat& Ix, const Mat& Iy, const Mat& It, const Mat& expectedFlowX, const Mat& expectedFlowY) {
+    Mat flowX = Mat::zeros(Ix.size(), CV_32F);
+    Mat flowY = Mat::zeros(Iy.size(), CV_32F);
+    
+    LeastSquaresSolver solver;
+    solver.computeOpticalFlow(Ix, Iy, It, flowX, flowY);
+    
+    cout << "Running test: " << testName << endl;
+    bool passed = true;
+    
+    for (int i = 0; i < Ix.rows; i++) {
+        for (int j = 0; j < Ix.cols; j++) {
+            if (abs(flowX.at<float>(i, j) - expectedFlowX.at<float>(i, j)) > 1e-4 ||
+                abs(flowY.at<float>(i, j) - expectedFlowY.at<float>(i, j)) > 1e-4) {
+                cout << "Test failed at (" << i << ", " << j << ")" << endl;
+                cout << "Expected: (" << expectedFlowX.at<float>(i, j) << ", " << expectedFlowY.at<float>(i, j) << ")" << endl;
+                cout << "Actual: (" << flowX.at<float>(i, j) << ", " << flowY.at<float>(i, j) << ")" << endl;
+                passed = false;
+            }
+        }
+    }
+    
+    if (passed) {
+        cout << "Test passed!" << endl;
+    } else {
+        cout << "Test failed!" << endl;
+    }
+}
+
+
+int main() {
+    Mat Ix = Mat::zeros(5, 5, CV_32F);
+    Mat Iy = Mat::zeros(5, 5, CV_32F);
+    Mat It = Mat::zeros(5, 5, CV_32F);
+    Mat expectedFlowX = Mat::zeros(5, 5, CV_32F);
+    Mat expectedFlowY = Mat::zeros(5, 5, CV_32F);
+    runTest("ZeroFlow", Ix, Iy, It, expectedFlowX, expectedFlowY);
+    
+    Ix = Mat::ones(5, 5, CV_32F);
+    Iy = Mat::ones(5, 5, CV_32F);
+    It = Mat::ones(5, 5, CV_32F);
+    expectedFlowX = Mat::zeros(5, 5, CV_32F);
+    expectedFlowY = Mat::zeros(5, 5, CV_32F);
+    runTest("ConstantFlow", Ix, Iy, It, expectedFlowX, expectedFlowY);
+    
+    Ix = (Mat_<float>(5,5) << 1, 2, 3, 4, 5,
+                               2, 3, 4, 5, 6,
+                               3, 4, 100, 6, 7,
+                               4, 5, 6, 7, 8,
+                               5, 6, 7, 8, 9);
+    Iy = (Mat_<float>(5,5) << 9, 8, 7, 6, 5,
+                               8, 7, 6, 5, 4,
+                               7, 6, 100, 4, 3,
+                               6, 5, 4, 3, 2,
+                               5, 4, 3, 2, 1);
+    It = (Mat_<float>(5,5) << -1, -2, -3, -4, -5,
+                               -2, -3, -4, -5, -6,
+                               -3, -4, -5, -6, -7,
+                               -4, -5, -6, -7, -8,
+                               -5, -6, -7, -8, -9);
+	expectedFlowX = (Mat_<float>(5,5) << 0, 0, 0, 0, 0,
+										 0, 0, 0, 0, 0,
+										 0, 0, 0.53214777, 0, 0,
+										 0, 0, 0, 0, 0,
+										 0, 0, 0, 0, 0);
+    expectedFlowY = (Mat_<float>(5,5) << 0, 0, 0, 0, 0,
+										 0, 0, 0, 0, 0,
+										 0, 0, -0.46785226, 0, 0,
+										 0, 0, 0, 0, 0,
+										 0, 0, 0, 0, 0);
+    runTest("NonZeroFlow", Ix, Iy, It, expectedFlowX, expectedFlowY);
+    
+    return 0;
+}
