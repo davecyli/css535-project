@@ -37,6 +37,25 @@ float CudaProfiler::stopTimer() {
     return milliseconds;
 }
 
+bool CudaProfiler::startCPUTimer() {
+    start = std::chrono::high_resolution_clock::now();
+    isCPUTiming = true;
+    return true;
+}
+
+float CudaProfiler::stopCPUTimer() {
+    if (!isCPUTiming) {
+        std::cerr << "Error: CPU Timer was not started!\n";
+        return -1.0f;
+    }
+    // Capture the end time
+    auto end = std::chrono::high_resolution_clock::now();
+        // Calculate elapsed time in nanoseconds
+    auto elapsed_microseconds = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+    isCPUTiming = false;
+    return elapsed_microseconds;
+}
+
 float CudaProfiler::profileMemcpyHtoD(void* d_dst, const void* h_src, size_t size) {
     if (!startTimer()) return -1.0f;
     //cudaMemcpyAsync(d_dst, h_src, size, cudaMemcpyHostToDevice, stream);
