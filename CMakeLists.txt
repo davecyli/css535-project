@@ -23,25 +23,32 @@ link_directories(${OpenCV_LIB_DIR})
 
 # Source and header files
 set(OCV_SOURCES
-    OpticalFlow/driver.cpp
-    OpticalFlow/kernel.cpp
+    OpticalFlow/circularBuffer.cpp
     OpticalFlow/convolution.cpp
+    OpticalFlow/driver.cu
+    OpticalFlow/kernel.cpp
     OpticalFlow/spatialConvolution.cpp
     OpticalFlow/temporalConvolution.cpp
-    OpticalFlow/circularBuffer.cpp
+    OpticalFlow/profiler.cu
 )
 
 set(OCV_HEADERS
+    OpticalFlow/circularBuffer.h
+    OpticalFlow/collection_adapters.hpp
+    OpticalFlow/convolution.h
+    OpticalFlow/kernel.h
     OpticalFlow/spatialConvolution.h
     OpticalFlow/temporalConvolution.h
-    OpticalFlow/kernel.h
-    OpticalFlow/convolution.h
-    OpticalFlow/circularBuffer.h
+    OpticalFlow/profiler.h
 )
 
 set(CUDA_SOURCES
     OpticalFlow/test.cu
     OpticalFlow/profiler.cu
+)
+
+set(CUDA_HEADERS
+    OpticalFlow/profiler.h
 )
 
 # Arrow library
@@ -58,12 +65,14 @@ include_directories(${EIGEN_INCLUDE_DIR})
 
 ### OPENCV Driver Project
 add_executable(driver ${OCV_SOURCES} ${OCV_HEADERS})
-set_target_properties(driver PROPERTIES EXCLUDE_FROM_ALL ON)  # Exclude from ALL_BUILD
-target_compile_options(driver PRIVATE  /EHsc)
+# set_target_properties(driver PROPERTIES EXCLUDE_FROM_ALL ON)  # Exclude from ALL_BUILD
+set_target_properties(driver PROPERTIES CUDA_SEPARABLE_COMPILATION ON EXCLUDE_FROM_ALL ON)  # Exclude from ALL_BUILD
+#target_compile_options(driver PRIVATE  /EHsc)
+target_compile_options(driver PRIVATE -Xcompiler "/EHsc /Zi /Ob0")
 target_link_libraries(driver ${OpenCV_LIBS} rerun_sdk Eigen3::Eigen)
 
 ### Test CUDA Project
-add_executable(test_cuda ${CUDA_SOURCES})
+add_executable(test_cuda ${CUDA_SOURCES} ${CUDA_HEADERS})
 set_target_properties(test_cuda PROPERTIES CUDA_SEPARABLE_COMPILATION ON EXCLUDE_FROM_ALL ON)  # Exclude from ALL_BUILD
 target_link_libraries(test_cuda PRIVATE rerun_sdk)
 

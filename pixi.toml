@@ -8,10 +8,11 @@ version = "0.1.0"
 
 [tasks.start]
 # Start the built executable
-cmd = ".build/Release/example_minimal.exe"
+cmd = ".build/Debug/example_minimal.exe"
 depends-on = ["build"]
 
 [dependencies]
+pip = ">=24.0,<25"  	# To install rerun-sdk        
 rerun-sdk = ">=0.10.0"
 cmake = "3.26.4.*"
 eigen = ">=3.4.0,<4"
@@ -32,7 +33,7 @@ outputs = [".build/CMakeFiles/"]
 
 # Build the executable but make sure CMake is configured first.
 [feature.build.tasks.build]
-cmd = ["cmake", "--build", ".build", "--config", "Release"]  # Change config as needed (Debug/Release)
+cmd = ["cmake", "--build", ".build", "--config", "Debug"]  # Change config as needed (Debug/Release)
 depends-on = ["configure"]
 inputs = ["CMakeLists.txt", "src/*"]
 outputs = [".build"]

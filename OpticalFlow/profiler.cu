@@ -10,7 +10,7 @@ CudaProfiler::CudaProfiler() : isTiming(false) {
 CudaProfiler::~CudaProfiler() {
     cudaEventDestroy(startEvent);
     cudaEventDestroy(stopEvent);
-    cudaStreamDestroy(stream);
+    //cudaStreamDestroy(stream);
     cudaProfilerStop();
 }
 
