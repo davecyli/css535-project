@@ -21,6 +21,9 @@
 *.lib
 *.dll
 
+# Build folder
+.build
+
 # Mono auto generated files
 mono_crash.*
 
@@ -406,3 +409,6 @@ FodyWeavers.xsd
 
 # JetBrains Rider
 *.sln.iml
+# pixi environments
+.pixi
+*.egg-info
