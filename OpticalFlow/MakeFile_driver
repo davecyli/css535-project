@@ -1,12 +1,5 @@
-# CUDA compiler
-NVCC = nvcc
-
-# Target executable name
-TARGET = test.exe
-
-# Object files
-OBJ = test.obj profiler.obj#------------------------------------------------------------
-# Combined Makefile for OpenCV (cl) and CUDA (nvcc) projects
+#------------------------------------------------------------
+# Make file for driver.cpp (OPENCV)
 #------------------------------------------------------------
 
 # ----- OpenCV / C++ Build Settings -----
@@ -27,24 +20,12 @@ CFLAGS = /EHsc /I$(OPENCV_INCLUDE)
 LFLAGS = /LIBPATH:$(OPENCV_LIB) $(OPENCV_LIBS)
 
 # Source, object, and target names for OpenCV part
-OCV_SRCS = driver.cpp kernel.cpp convolution.cpp spatialConvolution.cpp temporalConvolution.cpp circularBuffer.cpp
 OCV_OBJS = driver.obj kernel.obj convolution.obj spatialConvolution.obj temporalConvolution.obj circularBuffer.obj
 OCV_TARGET = driver.exe
 
-# ----- CUDA Build Settings -----
-# CUDA compiler
-NVCC = nvcc
-# Suppress the deprecation warning for offline compilation for older architectures
-NVCCFLAGS = -Wno-deprecated-gpu-targets
-
-# Source, object, and target names for CUDA part
-CUDA_SRCS = test.cu profiler.cu
-CUDA_OBJS = test.obj profiler.obj
-CUDA_TARGET = test.exe
-
 # ----- Default Target -----
 # Build both executables
-all: $(OCV_TARGET) $(CUDA_TARGET)
+all: $(OCV_TARGET)
 
 # ----- OpenCV (CPU) Build Rules -----
 $(OCV_TARGET): $(OCV_OBJS)
@@ -72,36 +53,6 @@ temporalConvolution.obj: temporalConvolution.cpp temporalConvolution.h
 circularBuffer.obj: circularBuffer.cpp circularBuffer.h
 	$(CC) $(CFLAGS) /c circularBuffer.cpp
 
-# ----- CUDA Build Rules -----
-$(CUDA_TARGET): $(CUDA_OBJS)
-	$(NVCC) $(NVCCFLAGS) -o $(CUDA_TARGET) $(CUDA_OBJS)
-
-test.obj: test.cu
-	$(NVCC) $(NVCCFLAGS) -c test.cu -o test.obj
-
-profiler.obj: profiler.cu
-	$(NVCC) $(NVCCFLAGS) -c profiler.cu -o profiler.obj
-
 # ----- Clean Target -----
 clean:
-	del $(OCV_TARGET) $(CUDA_TARGET) *.obj *.lib *.exe *.exp
-
-
-
-# Default build rule
-all: $(TARGET)
-
-# Link the object files into an executable
-$(TARGET): $(OBJ)
-	$(NVCC) -o $(TARGET) $(OBJ)
-
-# Compile CUDA source files into object files
-test.obj: test.cu
-	$(NVCC) -c test.cu -o test.obj
-
-profiler.obj: profiler.cu
-	$(NVCC) -c profiler.cu -o profiler.obj
-
-# Clean up generated files
-clean:
-	del /Q $(TARGET) *.obj
+	del $(CUDA_TARGET) *.obj *.lib *.exe *.exp
