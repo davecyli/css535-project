@@ -15,14 +15,14 @@ set(CMAKE_SUPPRESS_REGENERATION ON) # Prevents ZERO_CHECK from appearing
 # Suppress deprecated GPU target warnings
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Wno-deprecated-gpu-targets")
 
-# OpenCV setup
+# Main Project setup
 set(OpenCV_DIR "C:/opencv/build")
 find_package(OpenCV REQUIRED)
 include_directories(${OpenCV_INCLUDE_DIRS})
 link_directories(${OpenCV_LIB_DIR})
 
 # Source and header files
-set(OCV_SOURCES
+set(MAIN_SOURCES
     OpticalFlow/circularBuffer.cpp
     OpticalFlow/convolution.cpp
     OpticalFlow/driver.cu
@@ -30,9 +30,10 @@ set(OCV_SOURCES
     OpticalFlow/spatialConvolution.cpp
     OpticalFlow/temporalConvolution.cpp
     OpticalFlow/profiler.cu
+	OpticalFlow/least_squares_solver.cpp
 )
 
-set(OCV_HEADERS
+set(MAIN_HEADERS
     OpticalFlow/circularBuffer.h
     OpticalFlow/collection_adapters.hpp
     OpticalFlow/convolution.h
@@ -40,6 +41,7 @@ set(OCV_HEADERS
     OpticalFlow/spatialConvolution.h
     OpticalFlow/temporalConvolution.h
     OpticalFlow/profiler.h
+	OpticalFlow/least_squares_solver.h
 )
 
 set(CUDA_SOURCES
@@ -64,7 +66,7 @@ find_package (Eigen3 3.3 REQUIRED NO_MODULE)
 include_directories(${EIGEN_INCLUDE_DIR})
 
 ### OPENCV Driver Project
-add_executable(driver ${OCV_SOURCES} ${OCV_HEADERS})
+add_executable(driver ${MAIN_SOURCES} ${MAIN_HEADERS})
 # set_target_properties(driver PROPERTIES EXCLUDE_FROM_ALL ON)  # Exclude from ALL_BUILD
 set_target_properties(driver PROPERTIES CUDA_SEPARABLE_COMPILATION ON EXCLUDE_FROM_ALL ON)  # Exclude from ALL_BUILD
 #target_compile_options(driver PRIVATE  /EHsc)

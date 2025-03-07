@@ -6,6 +6,7 @@ Changes to make prior to GPU implementation
 
 */
 #include "profiler.h"
+#include "least_squares_solver.h"
 #include "spatialConvolution.h"
 #include "temporalConvolution.h"
 #include "collection_adapters.hpp"
@@ -23,6 +24,8 @@ using namespace cv;
 
 int main(int argc, char* argv[]) {
     CudaProfiler profiler = CudaProfiler();
+    LeastSquaresSolver solver;
+
     string videoFilePath = "";
     // Check input validity
     if (argc < 2) {
@@ -61,9 +64,11 @@ int main(int argc, char* argv[]) {
     SpatialConvolution spatial;
     TemporalConvolution temporalSmooth(kernelSizeSmoothing);
     TemporalConvolution temporalDerivative(kernelSizeDerivative);
-    Mat frame, smoothedT, smoothedTX, smoothedTXY, I_t, I_x, I_y, derivativeDisplay, smoothedDisplay;
-    cv::Mat frameRGBA;
+    Mat frame, smoothedT, smoothedTX, smoothedTXY, I_t, I_x, I_y;
+    Mat derivativeDisplay, smoothedDisplay, frameRGBA;
+
     while (capture.read(frame)) {
+
         // Display original image
         // Convert from BGR to RGBA
         cv::cvtColor(frame, frameRGBA, cv::COLOR_BGR2RGBA);
@@ -124,6 +129,56 @@ int main(int argc, char* argv[]) {
             rec.log("6.I_y", rerun::Image::from_greyscale8(derivativeDisplay, { uint32_t(derivativeDisplay.cols), uint32_t(derivativeDisplay.rows) }));
         }
 
+        Mat flowX = Mat::zeros(uint32_t(I_x.rows), uint32_t(I_x.cols), CV_32F);
+        Mat flowY = Mat::zeros(uint32_t(I_x.rows), uint32_t(I_x.cols), CV_32F);
+        Mat flowX_8u = Mat::zeros(uint32_t(I_x.rows), uint32_t(I_x.cols), CV_8U);
+        Mat flowY_8u = Mat::zeros(uint32_t(I_y.rows), uint32_t(I_y.cols), CV_8U);
+
+        double minVal, maxVal;
+        cv::Point minLoc, maxLoc;
+
+        cv::minMaxLoc(I_x, &minVal, &maxVal, &minLoc, &maxLoc);
+        std::cout << "I_x Minimum value: " << minVal << " at position " << minLoc << std::endl;
+        std::cout << "I_x Maximum value: " << maxVal << " at position " << maxLoc << std::endl;
+        cv::minMaxLoc(I_y, &minVal, &maxVal, &minLoc, &maxLoc);
+        std::cout << "I_y Minimum value: " << minVal << " at position " << minLoc << std::endl;
+        std::cout << "I_y Maximum value: " << maxVal << " at position " << maxLoc << std::endl;
+        cv::minMaxLoc(I_t, &minVal, &maxVal, &minLoc, &maxLoc);
+        std::cout << "I_t Minimum value: " << minVal << " at position " << minLoc << std::endl;
+        std::cout << "I_t Maximum value: " << maxVal << " at position " << maxLoc << std::endl;
+
+        Mat I_x_32F;
+        Mat I_y_32F;
+        Mat I_t_32F;
+
+        normalize(I_x, I_x_32F, 0, 255, cv::NORM_MINMAX);
+        I_x_32F.convertTo(I_x_32F, CV_32F);
+        normalize(I_y, I_y_32F, 0, 255, cv::NORM_MINMAX);
+        I_x_32F.convertTo(I_x_32F, CV_32F);
+        normalize(I_t, I_t_32F, 0, 255, cv::NORM_MINMAX);
+        I_x_32F.convertTo(I_x_32F, CV_32F);
+        int index = 0;
+        if (!I_x.empty() && !I_y.empty() && !I_t.empty()) {
+            solver.computeOpticalFlow(I_x_32F, I_y_32F, I_t_32F, flowX, flowY);
+            // Declare what you need
+            imwrite("flowX_" + std::to_string(index) + ".jpg", flowX);
+            imwrite("flowY_" + std::to_string(index) + ".jpg", flowY);
+
+            cv::minMaxLoc(flowX, &minVal, &maxVal, &minLoc, &maxLoc);
+            std::cout << "flowX Minimum value: " << minVal << " at position " << minLoc << std::endl;
+            std::cout << "flowX Maximum value: " << maxVal << " at position " << maxLoc << std::endl;
+
+            cv::minMaxLoc(flowY, &minVal, &maxVal, &minLoc, &maxLoc);
+            std::cout << "flowY Minimum value: " << minVal << " at position " << minLoc << std::endl;
+            std::cout << "flowY Maximum value: " << maxVal << " at position " << maxLoc << std::endl;
+
+            flowX.convertTo(flowX_8u, CV_8U); // Convert to 8-bit
+            flowY.convertTo(flowY_8u, CV_8U); // Convert to 8-bit
+
+            rec.log("&.flowX", rerun::Image::from_greyscale8(flowX_8u, { uint32_t(flowX_8u.cols), uint32_t(flowX_8u.rows) }));
+            rec.log("&.flowY", rerun::Image::from_greyscale8(flowY_8u, { uint32_t(flowY_8u.cols), uint32_t(flowY_8u.rows) }));
+            index++;
+        }
     }
 
     // Cleanup

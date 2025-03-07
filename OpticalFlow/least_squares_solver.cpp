@@ -72,7 +72,7 @@ void LeastSquaresSolver::computeOpticalFlow(const Mat& Ix, const Mat& Iy, const 
 void runTest(const string& testName, const Mat& Ix, const Mat& Iy, const Mat& It, const Mat& expectedFlowX, const Mat& expectedFlowY) {
     Mat flowX = Mat::zeros(Ix.size(), CV_32F);
     Mat flowY = Mat::zeros(Iy.size(), CV_32F);
-    
+
     LeastSquaresSolver solver;
     solver.computeOpticalFlow(Ix, Iy, It, flowX, flowY);
     
@@ -99,7 +99,7 @@ void runTest(const string& testName, const Mat& Ix, const Mat& Iy, const Mat& It
 }
 
 
-int main() {
+int notmain() {
     Mat Ix = Mat::zeros(5, 5, CV_32F);
     Mat Iy = Mat::zeros(5, 5, CV_32F);
     Mat It = Mat::zeros(5, 5, CV_32F);
