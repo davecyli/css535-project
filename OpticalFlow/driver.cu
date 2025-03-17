@@ -18,6 +18,7 @@ Changes to make prior to GPU implementation
 
 #include <rerun.hpp>
 #include <rerun/demo_utils.hpp>
+#include <fstream>
 
 using namespace std;
 using namespace cv;
@@ -69,6 +70,7 @@ int main(int argc, char* argv[]) {
     Mat frame, smoothedT, smoothedTX, smoothedTXY, I_t, I_x, I_y;
     Mat derivativeDisplay, smoothedDisplay, frameRGBA;
 
+	ofstream resultsFile("results.txt");
     while (capture.read(frame)) {
 
         // Display original image
@@ -140,14 +142,14 @@ int main(int argc, char* argv[]) {
         cv::Point minLoc, maxLoc;
 
         cv::minMaxLoc(I_x, &minVal, &maxVal, &minLoc, &maxLoc);
-        std::cout << "I_x Minimum value: " << minVal << " at position " << minLoc << std::endl;
-        std::cout << "I_x Maximum value: " << maxVal << " at position " << maxLoc << std::endl;
+        resultsFile << "I_x Minimum value: " << minVal << " at position " << minLoc << std::endl;
+        resultsFile << "I_x Maximum value: " << maxVal << " at position " << maxLoc << std::endl;
         cv::minMaxLoc(I_y, &minVal, &maxVal, &minLoc, &maxLoc);
-        std::cout << "I_y Minimum value: " << minVal << " at position " << minLoc << std::endl;
-        std::cout << "I_y Maximum value: " << maxVal << " at position " << maxLoc << std::endl;
+        resultsFile << "I_y Minimum value: " << minVal << " at position " << minLoc << std::endl;
+        resultsFile << "I_y Maximum value: " << maxVal << " at position " << maxLoc << std::endl;
         cv::minMaxLoc(I_t, &minVal, &maxVal, &minLoc, &maxLoc);
-        std::cout << "I_t Minimum value: " << minVal << " at position " << minLoc << std::endl;
-        std::cout << "I_t Maximum value: " << maxVal << " at position " << maxLoc << std::endl;
+        resultsFile << "I_t Minimum value: " << minVal << " at position " << minLoc << std::endl;
+        resultsFile << "I_t Maximum value: " << maxVal << " at position " << maxLoc << std::endl;
 
         Mat I_x_32F;
         Mat I_y_32F;
@@ -168,12 +170,12 @@ int main(int argc, char* argv[]) {
             imwrite("flowY_" + std::to_string(index) + ".jpg", flowY);
 
             cv::minMaxLoc(flowX, &minVal, &maxVal, &minLoc, &maxLoc);
-            std::cout << "flowX Minimum value: " << minVal << " at position " << minLoc << std::endl;
-            std::cout << "flowX Maximum value: " << maxVal << " at position " << maxLoc << std::endl;
+            resultsFile << "flowX Minimum value: " << minVal << " at position " << minLoc << std::endl;
+            resultsFile << "flowX Maximum value: " << maxVal << " at position " << maxLoc << std::endl;
 
             cv::minMaxLoc(flowY, &minVal, &maxVal, &minLoc, &maxLoc);
-            std::cout << "flowY Minimum value: " << minVal << " at position " << minLoc << std::endl;
-            std::cout << "flowY Maximum value: " << maxVal << " at position " << maxLoc << std::endl;
+            resultsFile << "flowY Minimum value: " << minVal << " at position " << minLoc << std::endl;
+            resultsFile << "flowY Maximum value: " << maxVal << " at position " << maxLoc << std::endl;
 
             flowX.convertTo(flowX_8u, CV_8U); // Convert to 8-bit
             flowY.convertTo(flowY_8u, CV_8U); // Convert to 8-bit
