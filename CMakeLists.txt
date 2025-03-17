@@ -31,6 +31,7 @@ set(MAIN_SOURCES
     OpticalFlow/temporalConvolution.cpp
     OpticalFlow/profiler.cu
 	OpticalFlow/least_squares_solver.cpp
+	OpticalFlow/least_squares_solver_cuda.cu
 )
 
 set(MAIN_HEADERS
@@ -42,6 +43,7 @@ set(MAIN_HEADERS
     OpticalFlow/temporalConvolution.h
     OpticalFlow/profiler.h
 	OpticalFlow/least_squares_solver.h
+	OpticalFlow/least_squares_solver_cuda.h
 )
 
 set(CUDA_SOURCES

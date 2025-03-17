@@ -10,6 +10,7 @@ Changes to make prior to GPU implementation
 #include "spatialConvolution.h"
 #include "temporalConvolution.h"
 #include "collection_adapters.hpp"
+#include "least_squares_solver_cuda.h"
 
 #include <Eigen/Dense>
 
@@ -25,6 +26,7 @@ using namespace cv;
 int main(int argc, char* argv[]) {
     CudaProfiler profiler = CudaProfiler();
     LeastSquaresSolver solver;
+	LeastSquaresSolverCUDA solverCUDA;
 
     string videoFilePath = "";
     // Check input validity
@@ -151,15 +153,16 @@ int main(int argc, char* argv[]) {
         Mat I_y_32F;
         Mat I_t_32F;
 
-        normalize(I_x, I_x_32F, 0, 255, cv::NORM_MINMAX);
+        normalize(I_x, I_x_32F, -1, 1, cv::NORM_MINMAX);
         I_x_32F.convertTo(I_x_32F, CV_32F);
-        normalize(I_y, I_y_32F, 0, 255, cv::NORM_MINMAX);
+        normalize(I_y, I_y_32F, -1, 1, cv::NORM_MINMAX);
         I_x_32F.convertTo(I_x_32F, CV_32F);
-        normalize(I_t, I_t_32F, 0, 255, cv::NORM_MINMAX);
+        normalize(I_t, I_t_32F, -1, 1, cv::NORM_MINMAX);
         I_x_32F.convertTo(I_x_32F, CV_32F);
         int index = 0;
         if (!I_x.empty() && !I_y.empty() && !I_t.empty()) {
-            solver.computeOpticalFlow(I_x_32F, I_y_32F, I_t_32F, flowX, flowY);
+            //solver.computeOpticalFlow(I_x_32F, I_y_32F, I_t_32F, flowX, flowY);
+			solverCUDA.computeOpticalFlow(I_x, I_y, I_t, flowX, flowY);
             // Declare what you need
             imwrite("flowX_" + std::to_string(index) + ".jpg", flowX);
             imwrite("flowY_" + std::to_string(index) + ".jpg", flowY);
