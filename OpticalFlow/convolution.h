@@ -24,7 +24,6 @@ protected:
     float* d_frameData = nullptr;
     float* d_convolved = nullptr;
     float* d_kernel = nullptr;
-    bool isInitialized = false;
 
     void freeGPUResources();
 };

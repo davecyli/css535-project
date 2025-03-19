@@ -31,5 +31,4 @@ void Convolution::freeGPUResources() {
         cudaFree(d_kernel);
         d_kernel = nullptr;
     }
-    isInitialized = false;
 }
