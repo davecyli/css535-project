@@ -9,7 +9,8 @@ public:
     static Kernel* generateGaussian(int size, float sigma);
 
     int getSize() const;
-    float get(int index) const;
+    float getElement(int index) const;
+    float* getRawData() const;
 
     void print() const;
 

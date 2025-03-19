@@ -1,4 +1,9 @@
 #include "spatialConvolution.h"
+#include <cuda_runtime_api.h>
+#include <cuda_runtime.h>
+#include <device_launch_parameters.h>
+
+using namespace cv;
 
 Mat SpatialConvolution::convolveX(const Mat& frame, const Kernel& kernel) {
     Mat converted = convert(frame);
@@ -10,7 +15,8 @@ Mat SpatialConvolution::convolveY(const Mat& frame, const Kernel& kernel) {
     return convolve(converted, kernel, false);
 }
 
-Mat SpatialConvolution::convolve(const Mat& frame, const Kernel& kernel, const bool isX) {
+Mat SpatialConvolution::cpuConvolve(const Mat& frame, const Kernel& kernel, const bool isX) {
+
     if (frame.empty()) return frame;
 
     int rows = frame.rows;
@@ -34,7 +40,7 @@ Mat SpatialConvolution::convolve(const Mat& frame, const Kernel& kernel, const b
             for (int k = -halfKernel; k <= halfKernel; ++k) {
                 int idx = j + k; // Compute the shifted index
                 if (idx >= 0 && idx < cols) { // Make sure index is within bounds
-                    sum += inputFrame.at<float>(i, idx) * kernel.get(k + halfKernel);
+                    sum += inputFrame.at<float>(i, idx) * kernel.getElement(k + halfKernel);
                 }
             }
             convolved.at<float>(i, j) = sum; // Store
@@ -47,4 +53,24 @@ Mat SpatialConvolution::convolve(const Mat& frame, const Kernel& kernel, const b
     }
 
     return convolved;
+}
+
+Mat SpatialConvolution::gpuConvolveNaive(const Mat& frame, const Kernel& kernel, bool isX){
+    if (frame.empty()) return frame;
+
+    // Call the wrapper function
+    return launchConvolveNaiveKernel(frame, kernel);
+}
+
+Mat SpatialConvolution::convolve(const Mat& frame, const Kernel& kernel, bool isX) {
+    switch (implementation) {
+    case Implementation::CPU_NAIVE:
+        return cpuConvolve(frame, kernel, isX);
+    case Implementation::GPU_NAIVE:
+        return gpuConvolveNaive(frame, kernel, isX);
+        //case Implementation::GPU_SHARED_MEMORY:
+        //    return gpuConvolveSharedMemory(frame, kernel, isX);
+    default:
+        throw std::invalid_argument("Unknown implementation");
+    }
 }

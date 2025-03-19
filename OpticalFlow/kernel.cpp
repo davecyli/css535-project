@@ -47,8 +47,12 @@ int Kernel::getSize() const {
     return size;
 }
 
-float Kernel::get(int index) const {
+float Kernel::getElement(int index) const {
     return kernel[index];
+}
+
+float* Kernel::getRawData() const {
+    return kernel;
 }
 
 void Kernel::print() const {

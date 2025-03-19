@@ -8,7 +8,6 @@ Changes to make prior to GPU implementation
 
 #include "spatialConvolution.h"
 #include "temporalConvolution.h"
-
 #include <opencv2/opencv.hpp>
 
 using namespace std;
@@ -39,54 +38,106 @@ int main(int argc, char* argv[]) {
     Kernel derivativeKernel(derivativeKernelArray, kernelSizeDerivative);
 
     // Process frames
-    SpatialConvolution spatial;
-    TemporalConvolution temporalSmooth(kernelSizeSmoothing);
-    TemporalConvolution temporalDerivative(kernelSizeDerivative);
-    Mat frame, smoothedT, smoothedTX, smoothedTXY, I_t, I_x, I_y, derivativeDisplay;
+    SpatialConvolution cpuXY(Implementation::CPU_NAIVE);
+    TemporalConvolution cpuSmoothT(Implementation::CPU_NAIVE, kernelSizeSmoothing);
+    TemporalConvolution cpuDerivativeT(Implementation::CPU_NAIVE, kernelSizeDerivative);
+    Mat frame, cpuSmoothedT, cpuSmoothedTX, cpuSmoothedTXY, cpuI_t, cpuI_x, cpuI_y, derivativeDisplay;
+
+    SpatialConvolution gpuXY(Implementation::GPU_NAIVE);
+    TemporalConvolution gpuSmoothT(Implementation::GPU_NAIVE, kernelSizeSmoothing);
+    TemporalConvolution gpuDerivativeT(Implementation::GPU_NAIVE, kernelSizeDerivative);
+    Mat gpuSmoothedT, gpuSmoothedTX, gpuSmoothedTXY, gpuI_t, gpuI_x, gpuI_y;
+
     while (capture.read(frame)) {
         // Display original image
         imshow("Original image", frame);
         waitKey(1);
 
-        smoothedT = temporalSmooth.convolve(frame, *gaussianKernel);
-        if (!smoothedT.empty()) {
-            imshow("Smoothed T", smoothedT);
+        // CPU Implementation ---------------------------------------------------------------------
+
+        cpuSmoothedT = cpuSmoothT.convolve(frame, *gaussianKernel);
+        if (!cpuSmoothedT.empty()) {
+            imshow("Smoothed T: CPU", cpuSmoothedT);
             waitKey(1);
         }
 
-        smoothedTX = spatial.convolveX(smoothedT, *gaussianKernel);
-        if (!smoothedTX.empty()) {
-            imshow("Smoothed TX", smoothedTX);
+        cpuSmoothedTX = cpuXY.convolveX(cpuSmoothedT, *gaussianKernel);
+        if (!cpuSmoothedTX.empty()) {
+            imshow("Smoothed TX: CPU", cpuSmoothedTX);
             waitKey(1);
         }
 
-        smoothedTXY = spatial.convolveY(smoothedTX, *gaussianKernel);
-        if (!smoothedTXY.empty()) {
-            imshow("Smoothed TXY", smoothedTXY);
+        cpuSmoothedTXY = cpuXY.convolveY(cpuSmoothedTX, *gaussianKernel);
+        if (!cpuSmoothedTXY.empty()) {
+            imshow("Smoothed TXY: CPU", cpuSmoothedTXY);
             waitKey(1);
         }
         
-        I_t = temporalDerivative.convolve(smoothedTXY, derivativeKernel);
-        if (!I_t.empty()) {
-            normalize(I_t, derivativeDisplay, 0, 255, cv::NORM_MINMAX);
+        cpuI_t = cpuDerivativeT.convolve(cpuSmoothedTXY, derivativeKernel);
+        if (!cpuI_t.empty()) {
+            normalize(cpuI_t, derivativeDisplay, 0, 255, cv::NORM_MINMAX);
             derivativeDisplay.convertTo(derivativeDisplay, CV_8U); // Convert to 8-bit
-            imshow("I_t", derivativeDisplay);
+            imshow("cpuI_t: CPU", derivativeDisplay);
             waitKey(1);
         }
 
-        I_x = spatial.convolveX(smoothedTXY, derivativeKernel);
-        if (!I_x.empty()) {
-            normalize(I_x, derivativeDisplay, 0, 255, cv::NORM_MINMAX);
+        cpuI_x = cpuXY.convolveX(cpuSmoothedTXY, derivativeKernel);
+        if (!cpuI_x.empty()) {
+            normalize(cpuI_x, derivativeDisplay, 0, 255, cv::NORM_MINMAX);
             derivativeDisplay.convertTo(derivativeDisplay, CV_8U); // Convert to 8-bit
-            imshow("I_x", derivativeDisplay);
+            imshow("cpuI_x: CPU", derivativeDisplay);
             waitKey(1);
         }
 
-        I_y = spatial.convolveY(smoothedTXY, derivativeKernel);
-        if (!I_y.empty()) {
-            normalize(I_y, derivativeDisplay, 0, 255, cv::NORM_MINMAX);
+        cpuI_y = cpuXY.convolveY(cpuSmoothedTXY, derivativeKernel);
+        if (!cpuI_y.empty()) {
+            normalize(cpuI_y, derivativeDisplay, 0, 255, cv::NORM_MINMAX);
             derivativeDisplay.convertTo(derivativeDisplay, CV_8U); // Convert to 8-bit
-            imshow("I_y", derivativeDisplay);
+            imshow("cpuI_y: CPU", derivativeDisplay);
+            waitKey(1);
+        }
+
+        // GPU Implementation ---------------------------------------------------------------------
+
+        gpuSmoothedT = gpuSmoothT.convolve(frame, *gaussianKernel);
+        if (!gpuSmoothedT.empty()) {
+            imshow("Smoothed T: GPU Naive", gpuSmoothedT);
+            waitKey(1);
+        }
+
+        gpuSmoothedTX = gpuXY.convolveX(gpuSmoothedT, *gaussianKernel);
+        if (!gpuSmoothedTX.empty()) {
+            imshow("Smoothed TX: GPU Naive", gpuSmoothedTX);
+            waitKey(1);
+        }
+
+        gpuSmoothedTXY = gpuXY.convolveY(gpuSmoothedTX, *gaussianKernel);
+        if (!gpuSmoothedTXY.empty()) {
+            imshow("Smoothed TXY: GPU Naive", gpuSmoothedTXY);
+            waitKey(1);
+        }
+
+        gpuI_t = gpuDerivativeT.convolve(gpuSmoothedTXY, derivativeKernel);
+        if (!gpuI_t.empty()) {
+            normalize(gpuI_t, derivativeDisplay, 0, 255, cv::NORM_MINMAX);
+            derivativeDisplay.convertTo(derivativeDisplay, CV_8U); // Convert to 8-bit
+            imshow("gpuI_t: GPU Naive", derivativeDisplay);
+            waitKey(1);
+        }
+
+        gpuI_x = gpuXY.convolveX(gpuSmoothedTXY, derivativeKernel);
+        if (!gpuI_x.empty()) {
+            normalize(gpuI_x, derivativeDisplay, 0, 255, cv::NORM_MINMAX);
+            derivativeDisplay.convertTo(derivativeDisplay, CV_8U); // Convert to 8-bit
+            imshow("gpuI_x: GPU Naive", derivativeDisplay);
+            waitKey(1);
+        }
+
+        gpuI_y = gpuXY.convolveY(gpuSmoothedTXY, derivativeKernel);
+        if (!gpuI_y.empty()) {
+            normalize(gpuI_y, derivativeDisplay, 0, 255, cv::NORM_MINMAX);
+            derivativeDisplay.convertTo(derivativeDisplay, CV_8U); // Convert to 8-bit
+            imshow("gpuI_y: GPU Naive", derivativeDisplay);
             waitKey(1);
         }
 
