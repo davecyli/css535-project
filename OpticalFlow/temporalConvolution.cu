@@ -2,26 +2,25 @@
 #include "device_launch_parameters.h"
 #include "temporalConvolution.h"
 
-__global__ void convolveTemporalNaiveKernel(
+__global__ void temporalConvolveNaiveKernel(
     float* d_frames, float* d_output, float* d_kernel,
-    int width, int height, int bufferSize, int currentIndex)
+    int frameSize, int bufferSize, int currentIndex)
 {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    if (idx >= width * height) return;
+    if (idx >= frameSize) return;
 
     float sum = 0.0f;
 
     for (int i = 0; i < bufferSize; i++) {
         // Compute correct index in circular buffer
         int frameIdx = (currentIndex + bufferSize - i) % bufferSize;
-        sum += d_frames[frameIdx * width * height + idx] * d_kernel[i];
+        sum += d_frames[frameIdx * frameSize + idx] * d_kernel[i];
     }
 
     d_output[idx] = sum;
 }
 
 Mat TemporalConvolution::launchConvolveNaiveKernel(const Mat& frame, const Kernel& kernel) {
-
 
     if (frame.empty()) return frame;
 
@@ -36,69 +35,18 @@ Mat TemporalConvolution::launchConvolveNaiveKernel(const Mat& frame, const Kerne
 
     if (!gpuBuffer.isFull()) {
         delete[] floatFrame;  // Clean up temporary buffer
-        return frame;
+        return Mat();
     }
 
-    // Allocate GPU memory only once
-    static int frameIndex = 0;  // Circular buffer index
-    static bool isFirstPass = true;
-
-    cudaError_t error;
     if (isFirstPass) {
-        cudaMalloc(&d_frameData, frameBytes);
-
-        // For troubleshooting ------------------------------------------------------
-        error = cudaGetLastError();
-        if (error != cudaSuccess) {
-            std::cerr << "CUDA Error at cudaMalloc(&d_frameData...); : " << cudaGetErrorString(error) << std::endl;
-        }
-        // ---------------------------------------------------------------------------
-
-        cudaMemset(d_frameData, 0, frameBytes);
-
-        // For troubleshooting ------------------------------------------------------
-        error = cudaGetLastError();
-        if (error != cudaSuccess) {
-            std::cerr << "CUDA Error at cudaMalloc(&d_frameData...); : " << cudaGetErrorString(error) << std::endl;
-        }
-        // ---------------------------------------------------------------------------
+        cudaMalloc(&d_frames, frameBytes * kernel.getSize());
+        cudaMemset(d_frames, 0, frameBytes * kernel.getSize());
 
         cudaMalloc(&d_convolved, frameBytes);
-
-        // For troubleshooting ------------------------------------------------------
-        error = cudaGetLastError();
-        if (error != cudaSuccess) {
-            std::cerr << "CUDA Error at cudaMalloc(&d_convolved...); : " << cudaGetErrorString(error) << std::endl;
-        }
-        // ---------------------------------------------------------------------------
-
         cudaMemset(d_convolved, 0, frameBytes);
 
-        // For troubleshooting ------------------------------------------------------
-        error = cudaGetLastError();
-        if (error != cudaSuccess) {
-            std::cerr << "CUDA Error at cudaMalloc(&d_kernel...); : " << cudaGetErrorString(error) << std::endl;
-        }
-        // ---------------------------------------------------------------------------
-
         cudaMalloc(&d_kernel, kernel.getSize() * sizeof(float));
-
-        // For troubleshooting ------------------------------------------------------
-        error = cudaGetLastError();
-        if (error != cudaSuccess) {
-            std::cerr << "CUDA Error at cudaMalloc(&d_kernel...); : " << cudaGetErrorString(error) << std::endl;
-        }
-        // ---------------------------------------------------------------------------
-
-        // Copy kernel data to device
         cudaMemcpy(d_kernel, kernel.getRawData(), kernel.getSize() * sizeof(float), cudaMemcpyHostToDevice);
-
-        // For troubleshooting ------------------------------------------------------
-        error = cudaGetLastError();
-        if (error != cudaSuccess) {
-            std::cerr << "CUDA Error at cudaMemcpy(d_kernel...) : " << cudaGetErrorString(error) << std::endl;
-        }
-        // ---------------------------------------------------------------------------
 
         isFirstPass = false;
     }
@@ -106,30 +54,8 @@ Mat TemporalConvolution::launchConvolveNaiveKernel(const Mat& frame, const Kerne
     // Compute the offset where the new frame should go
     int offset = frameIndex * frameSize;
 
-    // For troubleshooting ------------------------------------------------------
-    cout << "Copying frame to GPU. Size: " << frameBytes << " bytes" << std::endl;
-    cout << "Source pointer: " << floatFrame << ", Destination offset: " << offset << std::endl;
-    cout << "d_frameData + offset: " << d_frameData + offset << endl;
-    std::cout << "floatFrame contents: ";
-
-    bool hasNaN = false, hasInf = false;
-    for (size_t i = 0; i < frameSize; ++i) {
-        if (isnan(floatFrame[i])) hasNaN = true;
-        if (isinf(floatFrame[i])) hasInf = true;
-    }
-    if (hasNaN) cerr << "Warning: floatFrame contains NaN values!" << endl;
-    if (hasInf) cerr << "Warning: floatFrame contains Inf values!" << endl;
-    // --------------------------------------------------------------------------
-
     // Copy the new frame into the correct position in circular buffer
-    cudaMemcpy(d_frameData + offset, floatFrame, frameBytes, cudaMemcpyHostToDevice);
-
-    // For troubleshooting ------------------------------------------------------
-    error = cudaGetLastError();
-    if (error != cudaSuccess) {
-        std::cerr << "CUDA Error  at cudaMemcpy(d_frameData...HostToDevice) : " << cudaGetErrorString(error) << std::endl;
-    }
-    // ---------------------------------------------------------------------------
+    cudaMemcpy(d_frames + offset, floatFrame, frameBytes, cudaMemcpyHostToDevice);
 
     cudaDeviceSynchronize();
 
@@ -137,37 +63,17 @@ Mat TemporalConvolution::launchConvolveNaiveKernel(const Mat& frame, const Kerne
     frameIndex = (frameIndex + 1) % gpuBuffer.getSize();
 
     // Launch kernel
-    int totalPixels = frame.cols * frame.rows;
     dim3 blockDim(256);
-    dim3 gridDim((totalPixels + blockDim.x - 1) / blockDim.x);
+    dim3 gridDim((frameSize + blockDim.x - 1) / blockDim.x);
 
-    convolveTemporalNaiveKernel << <gridDim, blockDim >> > (
-        d_frameData, d_convolved, d_kernel,
-        frame.cols, frame.rows, gpuBuffer.getSize(), frameIndex
+    temporalConvolveNaiveKernel << <gridDim, blockDim >> > (
+        d_frames, d_convolved, d_kernel,
+        frameSize, gpuBuffer.getSize(), frameIndex
         );
-
-    // For troubleshooting ------------------------------------------------------
-    error = cudaGetLastError();
-    if (error != cudaSuccess) {
-        std::cerr << "CUDA Error at kernel: " << cudaGetErrorString(error) << std::endl;
-    }
-
-    if (d_convolved == nullptr) {
-        std::cerr << "Error: d_convolved is nullptr!" << std::endl;
-        return frame;
-    }
-    // ---------------------------------------------------------------------------
 
     // Download result
     Mat result(converted.size(), CV_32F);
-    cudaMemcpy(result.ptr<float>(), d_convolved, frameSize, cudaMemcpyDeviceToHost);
-
-    // For troubleshooting ------------------------------------------------------
-    error = cudaGetLastError();
-    if (error != cudaSuccess) {
-        std::cerr << "CUDA Error at cudaMemcpy(result.ptr<float>()...DeviceToHost) : " << cudaGetErrorString(error) << std::endl;
-    }
-    // ---------------------------------------------------------------------------
+    cudaMemcpy(result.ptr<float>(), d_convolved, frameBytes, cudaMemcpyDeviceToHost);
 
     // Cleanup
     delete[] floatFrame;

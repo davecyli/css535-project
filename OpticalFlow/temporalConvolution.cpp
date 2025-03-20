@@ -1,8 +1,18 @@
 #include "temporalConvolution.h"
 #include <opencv2/core/cuda.hpp>
+#include "cuda_runtime.h"
 
 TemporalConvolution::TemporalConvolution(Implementation impl, int kernelSize) : 
     Convolution(impl), cpuBuffer(kernelSize), gpuBuffer(kernelSize) {}
+
+TemporalConvolution::~TemporalConvolution() {
+    if (d_frames) cudaFree(d_frames);
+    if (d_convolved) cudaFree(d_convolved);
+    if (d_kernel) cudaFree(d_kernel);
+    d_frames = nullptr;
+    d_convolved = nullptr;
+    d_kernel = nullptr;
+}
 
 Mat TemporalConvolution::cpuConvolve(const Mat& frame, const Kernel& kernel) {
     if (frame.empty()) return frame;

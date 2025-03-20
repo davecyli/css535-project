@@ -17,18 +17,3 @@ Mat Convolution::convert(const Mat& frame) const {
 
     return converted;
 }
-
-void Convolution::freeGPUResources() {
-    if (d_frameData) {
-        cudaFree(d_frameData);
-        d_frameData = nullptr;
-    }
-    if (d_convolved) {
-        cudaFree(d_convolved);
-        d_convolved = nullptr;
-    }
-    if (d_kernel) {
-        cudaFree(d_kernel);
-        d_kernel = nullptr;
-    }
-}

@@ -58,8 +58,25 @@ Mat SpatialConvolution::cpuConvolve(const Mat& frame, const Kernel& kernel, cons
 Mat SpatialConvolution::gpuConvolveNaive(const Mat& frame, const Kernel& kernel, bool isX){
     if (frame.empty()) return frame;
 
+    Mat result;
+
+    if (isX) {
+        // Apply convolution directly in the X direction
+        result = launchConvolveNaiveKernel(frame, kernel, true);
+    }
+    else {
+        // Transpose the frame, convolve in X (now acting as Y), then transpose back
+        Mat transposed;
+        cv::transpose(frame, transposed);  // Swap rows and columns
+
+        Mat convolvedTransposed = launchConvolveNaiveKernel(transposed, kernel, true);
+
+        // Transpose back to restore original orientation
+        cv::transpose(convolvedTransposed, result);
+    }
+
     // Call the wrapper function
-    return launchConvolveNaiveKernel(frame, kernel);
+    return result;
 }
 
 Mat SpatialConvolution::convolve(const Mat& frame, const Kernel& kernel, bool isX) {

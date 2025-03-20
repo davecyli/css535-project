@@ -1,9 +1,5 @@
 /*
 
-Changes to make prior to GPU implementation
-* Investigate transposing Y prior to convolve for cache locality
-* Use cv::cuda::GpuMat instead of cv::Mat
-
 */
 
 #include "spatialConvolution.h"
@@ -104,13 +100,13 @@ int main(int argc, char* argv[]) {
             imshow("Smoothed T: GPU Naive", gpuSmoothedT);
             waitKey(1);
         }
-
+        
         gpuSmoothedTX = gpuXY.convolveX(gpuSmoothedT, *gaussianKernel);
         if (!gpuSmoothedTX.empty()) {
             imshow("Smoothed TX: GPU Naive", gpuSmoothedTX);
             waitKey(1);
         }
-
+        
         gpuSmoothedTXY = gpuXY.convolveY(gpuSmoothedTX, *gaussianKernel);
         if (!gpuSmoothedTXY.empty()) {
             imshow("Smoothed TXY: GPU Naive", gpuSmoothedTXY);
@@ -140,7 +136,6 @@ int main(int argc, char* argv[]) {
             imshow("gpuI_y: GPU Naive", derivativeDisplay);
             waitKey(1);
         }
-
     }
 
     // Cleanup

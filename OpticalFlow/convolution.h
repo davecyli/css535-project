@@ -15,15 +15,10 @@ enum class Implementation {
 class Convolution {
 public:
     Convolution() : implementation(Implementation::GPU_SHARED_MEMORY) {}
-    virtual ~Convolution() { freeGPUResources(); }
     explicit Convolution(Implementation impl) : implementation(impl) {}
 protected:
     Mat convert(const Mat& frame) const;
     Implementation implementation;
-
-    float* d_frameData = nullptr;
-    float* d_convolved = nullptr;
-    float* d_kernel = nullptr;
 
     void freeGPUResources();
 };
