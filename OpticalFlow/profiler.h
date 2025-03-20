@@ -1,6 +1,7 @@
 #ifndef CUDA_PROFILER_H
 #define CUDA_PROFILER_H
 
+#include <chrono>
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include <cuda_profiler_api.h>
@@ -14,7 +15,10 @@ private:
     // default stream and avoid unnecessary synchronization issues.
     // Allows for easier multithreading
     cudaStream_t stream;
+    std::chrono::high_resolution_clock Clock;
+    std::chrono::time_point<std::chrono::high_resolution_clock> start;
     bool isTiming;
+    bool isCPUTiming;
 
 public:
     /**
@@ -31,7 +35,7 @@ public:
 
     /**
      * @brief Starts CUDA timer
-     * 
+     *
      * Updates internal timing state
      *
      * @return Timer start sucess
@@ -47,6 +51,25 @@ public:
                -1 if error.
      */
     float stopTimer();
+
+    /**
+     * @brief Starts CPU timer
+     *
+     * Updates internal CPU timing state
+     *
+     * @return Timer start sucess
+     */
+    bool startCPUTimer();
+
+    /**
+     * @brief Stops CPU timer
+     *
+     * Updates internal CPU timing state
+     *
+     * @return Time elapsed since startTimer() was called in milliseconds.
+               -1 if error.
+     */
+    float stopCPUTimer();
 
     /**
      * @brief Wrapper of cudaMemcpyAsync that returns time elapsed from host to 

@@ -1,0 +1,42 @@
+[project]
+authors = ["David Li <davecyli@gmail.com>", "Alanna Koser <TBD>", "Jonah A Kolar <TBD>"]
+channels = ["conda-forge"]
+description = "CSS535 Final Project demonstrating Optical Flow via the Lucas-Kanade Method"
+name = "css535-project"
+platforms = ["win-64"]
+version = "0.1.0"
+
+[tasks.start]
+# Start the built executable
+cmd = ".build/Debug/example_minimal.exe"
+depends-on = ["build"]
+
+[dependencies]
+pip = ">=24.0,<25"  	# To install rerun-sdk        
+rerun-sdk = ">=0.10.0"
+cmake = "3.26.4.*"
+eigen = ">=3.4.0,<4"
+
+[feature.build.tasks.configure]
+# Configures CMake
+cmd = [
+  "cmake",
+  # Use Visual Studio 2022 generator
+  "-GVisual Studio 17 2022",
+  # The source is in the root directory
+  "-S.",
+  # We wanna build in the .build directory
+  "-B.build",
+]
+inputs = ["CMakeLists.txt"]
+outputs = [".build/CMakeFiles/"]
+
+# Build the executable but make sure CMake is configured first.
+[feature.build.tasks.build]
+cmd = ["cmake", "--build", ".build", "--config", "Debug"]  # Change config as needed (Debug/Release)
+depends-on = ["configure"]
+inputs = ["CMakeLists.txt", "src/*"]
+outputs = [".build"]
+
+[environments]
+build = ["build"]
