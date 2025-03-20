@@ -20,7 +20,7 @@ __global__ void temporalConvolveNaiveKernel(
     d_output[idx] = sum;
 }
 
-Mat TemporalConvolution::launchConvolveNaiveKernel(const Mat& frame, const Kernel& kernel) {
+Mat TemporalConvolution::launchConvolveNaiveKernel(const Mat& frame, const Kernel& kernel, int blockSize) {
 
     if (frame.empty()) return frame;
 
@@ -62,11 +62,11 @@ Mat TemporalConvolution::launchConvolveNaiveKernel(const Mat& frame, const Kerne
     // Increment the frame index circularly
     frameIndex = (frameIndex + 1) % gpuBuffer.getSize();
 
-    // Launch kernel
-    dim3 blockDim(256);
-    dim3 gridDim((frameSize + blockDim.x - 1) / blockDim.x);
+    if (blockSize == 0) {
+        blockSize = 256;
+    } 
 
-    temporalConvolveNaiveKernel << <gridDim, blockDim >> > (
+    temporalConvolveNaiveKernel << <(frameSize + blockSize - 1) / blockSize, blockSize >> > (
         d_frames, d_convolved, d_kernel,
         frameSize, gpuBuffer.getSize(), frameIndex
         );

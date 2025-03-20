@@ -34,7 +34,8 @@ __global__ void spatialConvolveNaiveKernel(float* input, float* output, float* k
     output[idx] = sum;
 }
 
-Mat SpatialConvolution::launchConvolveNaiveKernel(const Mat& frame, const Kernel& kernel, bool isX) {
+Mat SpatialConvolution::launchConvolveNaiveKernel(const Mat& frame, 
+    const Kernel& kernel, bool isX, int blockSize) {
 
     if (frame.empty()) return frame;
 
@@ -47,9 +48,10 @@ Mat SpatialConvolution::launchConvolveNaiveKernel(const Mat& frame, const Kernel
 
     int width = converted.cols;
     int height = converted.rows;
+    int frameSize = width * height;
     int kernelSize = kernel.getSize();
 
-    size_t frameBytes = width * height * sizeof(float);
+    size_t frameBytes = frameSize * sizeof(float);
     size_t kernelBytes = kernelSize * sizeof(float);
 
     // Allocate memory on GPU
@@ -61,11 +63,10 @@ Mat SpatialConvolution::launchConvolveNaiveKernel(const Mat& frame, const Kernel
     cudaMemcpy(d_input, converted.ptr<float>(), frameBytes, cudaMemcpyHostToDevice);
     cudaMemcpy(d_kernel, kernel.getRawData(), kernelBytes, cudaMemcpyHostToDevice);
 
-    // Configure and launch the kernel
-    dim3 blockSize(32);
-    dim3 gridSize((width * height + blockSize.x - 1) / blockSize.x);
-
-    spatialConvolveNaiveKernel << <gridSize, blockSize >> > (d_input, d_output, d_kernel, width, height, kernelSize, isX);
+    if (blockSize == 0) {
+        blockSize = 256;
+    }
+    spatialConvolveNaiveKernel << <(frameSize + blockSize - 1) / blockSize, blockSize >> > (d_input, d_output, d_kernel, width, height, kernelSize, isX);
 
     cudaDeviceSynchronize();
 

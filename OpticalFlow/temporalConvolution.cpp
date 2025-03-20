@@ -34,12 +34,18 @@ Mat TemporalConvolution::cpuConvolve(const Mat& frame, const Kernel& kernel) {
     return convolved;
 }
 
+
+
 Mat TemporalConvolution::convolve(const Mat& frame, const Kernel& kernel) {
+    return convolve(frame, kernel, 0);
+}
+
+Mat TemporalConvolution::convolve(const Mat& frame, const Kernel& kernel, int blockSize) {
     switch (implementation) {
     case Implementation::CPU_NAIVE:
         return cpuConvolve(frame, kernel);
     case Implementation::GPU_NAIVE:
-        return gpuConvolveNaive(frame, kernel);
+        return gpuConvolveNaive(frame, kernel, blockSize);
         //case Implementation::GPU_SHARED_MEMORY:
         //    return gpuConvolveSharedMemory(frame, kernel, isX);
     default:
@@ -47,9 +53,9 @@ Mat TemporalConvolution::convolve(const Mat& frame, const Kernel& kernel) {
     }
 }
 
-Mat TemporalConvolution::gpuConvolveNaive(const Mat& frame, const Kernel& kernel) {
+Mat TemporalConvolution::gpuConvolveNaive(const Mat& frame, const Kernel& kernel, int blockSize) {
     if (frame.empty()) return frame;
 
     // Call the wrapper function
-    return launchConvolveNaiveKernel(frame, kernel);
+    return launchConvolveNaiveKernel(frame, kernel, blockSize);
 }

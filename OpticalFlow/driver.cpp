@@ -39,11 +39,6 @@ int main(int argc, char* argv[]) {
     TemporalConvolution cpuDerivativeT(Implementation::CPU_NAIVE, kernelSizeDerivative);
     Mat frame, cpuSmoothedT, cpuSmoothedTX, cpuSmoothedTXY, cpuI_t, cpuI_x, cpuI_y, derivativeDisplay;
 
-    SpatialConvolution gpuXY(Implementation::GPU_NAIVE);
-    TemporalConvolution gpuSmoothT(Implementation::GPU_NAIVE, kernelSizeSmoothing);
-    TemporalConvolution gpuDerivativeT(Implementation::GPU_NAIVE, kernelSizeDerivative);
-    Mat gpuSmoothedT, gpuSmoothedTX, gpuSmoothedTXY, gpuI_t, gpuI_x, gpuI_y;
-
     while (capture.read(frame)) {
         // Display original image
         imshow("Original image", frame);
@@ -68,7 +63,7 @@ int main(int argc, char* argv[]) {
             imshow("Smoothed TXY: CPU", cpuSmoothedTXY);
             waitKey(1);
         }
-        
+
         cpuI_t = cpuDerivativeT.convolve(cpuSmoothedTXY, derivativeKernel);
         if (!cpuI_t.empty()) {
             normalize(cpuI_t, derivativeDisplay, 0, 255, NORM_MINMAX);
@@ -93,49 +88,77 @@ int main(int argc, char* argv[]) {
             waitKey(1);
         }
 
-        // GPU Implementation ---------------------------------------------------------------------
+    }
 
-        gpuSmoothedT = gpuSmoothT.convolve(frame, *gaussianKernel);
-        if (!gpuSmoothedT.empty()) {
-            imshow("Smoothed T: GPU Naive", gpuSmoothedT);
-            waitKey(1);
-        }
-        
-        gpuSmoothedTX = gpuXY.convolveX(gpuSmoothedT, *gaussianKernel);
-        if (!gpuSmoothedTX.empty()) {
-            imshow("Smoothed TX: GPU Naive", gpuSmoothedTX);
-            waitKey(1);
-        }
-        
-        gpuSmoothedTXY = gpuXY.convolveY(gpuSmoothedTX, *gaussianKernel);
-        if (!gpuSmoothedTXY.empty()) {
-            imshow("Smoothed TXY: GPU Naive", gpuSmoothedTXY);
-            waitKey(1);
-        }
+    capture.release();
+    capture.open(video);
 
-        gpuI_t = gpuDerivativeT.convolve(gpuSmoothedTXY, derivativeKernel);
-        if (!gpuI_t.empty()) {
-            normalize(gpuI_t, derivativeDisplay, 0, 255, NORM_MINMAX);
-            derivativeDisplay.convertTo(derivativeDisplay, CV_8U); // Convert to 8-bit
-            imshow("gpuI_t: GPU Naive", derivativeDisplay);
-            waitKey(1);
-        }
+    SpatialConvolution gpuXY(Implementation::GPU_NAIVE);
+    TemporalConvolution gpuSmoothT(Implementation::GPU_NAIVE, kernelSizeSmoothing);
+    TemporalConvolution gpuDerivativeT(Implementation::GPU_NAIVE, kernelSizeDerivative);
+    Mat gpuSmoothedT, gpuSmoothedTX, gpuSmoothedTXY, gpuI_t, gpuI_x, gpuI_y;
 
-        gpuI_x = gpuXY.convolveX(gpuSmoothedTXY, derivativeKernel);
-        if (!gpuI_x.empty()) {
-            normalize(gpuI_x, derivativeDisplay, 0, 255, NORM_MINMAX);
-            derivativeDisplay.convertTo(derivativeDisplay, CV_8U); // Convert to 8-bit
-            imshow("gpuI_x: GPU Naive", derivativeDisplay);
-            waitKey(1);
-        }
+    int dimBlock[] = { 1024, 512, 256, 128, 64, 32 };
+    int numBlockDims = sizeof(dimBlock) / sizeof(dimBlock[0]);
 
-        gpuI_y = gpuXY.convolveY(gpuSmoothedTXY, derivativeKernel);
-        if (!gpuI_y.empty()) {
-            normalize(gpuI_y, derivativeDisplay, 0, 255, NORM_MINMAX);
-            derivativeDisplay.convertTo(derivativeDisplay, CV_8U); // Convert to 8-bit
-            imshow("gpuI_y: GPU Naive", derivativeDisplay);
-            waitKey(1);
+    for (int i = 0; i < numBlockDims; i++) {
+
+        while (capture.read(frame)) {
+
+            // GPU Implementation ---------------------------------------------------------------------
+
+            int blockSize = dimBlock[i];
+
+            gpuSmoothedT = gpuSmoothT.convolve(frame, *gaussianKernel, blockSize);
+            if (!gpuSmoothedT.empty()) {
+                string windowName = "Smoothed T, GPU Naive, Block Size: " + to_string(blockSize);
+                imshow(windowName, gpuSmoothedT);
+                waitKey(1);
+            }
+
+            gpuSmoothedTX = gpuXY.convolveX(gpuSmoothedT, *gaussianKernel, blockSize);
+            if (!gpuSmoothedTX.empty()) {
+                string windowName = "Smoothed TX, GPU Naive, Block Size: " + to_string(blockSize);
+                imshow(windowName, gpuSmoothedTX);
+                waitKey(1);
+            }
+
+            gpuSmoothedTXY = gpuXY.convolveY(gpuSmoothedTX, *gaussianKernel, blockSize);
+            if (!gpuSmoothedTXY.empty()) {
+                string windowName = "Smoothed TXY, GPU Naive, Block Size: " + to_string(blockSize);
+                imshow(windowName, gpuSmoothedTXY);
+                waitKey(1);
+            }
+
+            gpuI_t = gpuDerivativeT.convolve(gpuSmoothedTXY, derivativeKernel, blockSize);
+            if (!gpuI_t.empty()) {
+                normalize(gpuI_t, derivativeDisplay, 0, 255, NORM_MINMAX);
+                derivativeDisplay.convertTo(derivativeDisplay, CV_8U); // Convert to 8-bit
+                string windowName = "gpuI_t, GPU Naive, Block Size: " + to_string(blockSize);
+                imshow(windowName, derivativeDisplay);
+                waitKey(1);
+            }
+
+            gpuI_x = gpuXY.convolveX(gpuSmoothedTXY, derivativeKernel, blockSize);
+            if (!gpuI_x.empty()) {
+                normalize(gpuI_x, derivativeDisplay, 0, 255, NORM_MINMAX);
+                derivativeDisplay.convertTo(derivativeDisplay, CV_8U); // Convert to 8-bit
+                string windowName = "gpuI_x, GPU Naive, Block Size: " + to_string(blockSize);
+                imshow(windowName, derivativeDisplay);
+                waitKey(1);
+            }
+
+            gpuI_y = gpuXY.convolveY(gpuSmoothedTXY, derivativeKernel, blockSize);
+            if (!gpuI_y.empty()) {
+                normalize(gpuI_y, derivativeDisplay, 0, 255, NORM_MINMAX);
+                derivativeDisplay.convertTo(derivativeDisplay, CV_8U); // Convert to 8-bit
+                string windowName = "gpuI_y, GPU Naive, Block Size: " + to_string(blockSize);
+                imshow(windowName, derivativeDisplay);
+                waitKey(1);
+            }
         }
+        capture.release();
+        capture.open(video);
     }
 
     // Cleanup
