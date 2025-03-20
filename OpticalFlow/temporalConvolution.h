@@ -18,6 +18,7 @@ private:
 
     Mat cpuConvolve(const Mat& frame, const Kernel& kernel);
     Mat gpuConvolveNaive(const Mat& frame, const Kernel& kernel);
+
     Mat launchConvolveNaiveKernel(const Mat& frame, const Kernel& kernel);
 };
 

@@ -75,7 +75,7 @@ int main(int argc, char* argv[]) {
         
         cpuI_t = cpuDerivativeT.convolve(cpuSmoothedTXY, derivativeKernel);
         if (!cpuI_t.empty()) {
-            normalize(cpuI_t, derivativeDisplay, 0, 255, cv::NORM_MINMAX);
+            normalize(cpuI_t, derivativeDisplay, 0, 255, NORM_MINMAX);
             derivativeDisplay.convertTo(derivativeDisplay, CV_8U); // Convert to 8-bit
             imshow("cpuI_t: CPU", derivativeDisplay);
             waitKey(1);
@@ -83,7 +83,7 @@ int main(int argc, char* argv[]) {
 
         cpuI_x = cpuXY.convolveX(cpuSmoothedTXY, derivativeKernel);
         if (!cpuI_x.empty()) {
-            normalize(cpuI_x, derivativeDisplay, 0, 255, cv::NORM_MINMAX);
+            normalize(cpuI_x, derivativeDisplay, 0, 255, NORM_MINMAX);
             derivativeDisplay.convertTo(derivativeDisplay, CV_8U); // Convert to 8-bit
             imshow("cpuI_x: CPU", derivativeDisplay);
             waitKey(1);
@@ -91,7 +91,7 @@ int main(int argc, char* argv[]) {
 
         cpuI_y = cpuXY.convolveY(cpuSmoothedTXY, derivativeKernel);
         if (!cpuI_y.empty()) {
-            normalize(cpuI_y, derivativeDisplay, 0, 255, cv::NORM_MINMAX);
+            normalize(cpuI_y, derivativeDisplay, 0, 255, NORM_MINMAX);
             derivativeDisplay.convertTo(derivativeDisplay, CV_8U); // Convert to 8-bit
             imshow("cpuI_y: CPU", derivativeDisplay);
             waitKey(1);
@@ -119,7 +119,7 @@ int main(int argc, char* argv[]) {
 
         gpuI_t = gpuDerivativeT.convolve(gpuSmoothedTXY, derivativeKernel);
         if (!gpuI_t.empty()) {
-            normalize(gpuI_t, derivativeDisplay, 0, 255, cv::NORM_MINMAX);
+            normalize(gpuI_t, derivativeDisplay, 0, 255, NORM_MINMAX);
             derivativeDisplay.convertTo(derivativeDisplay, CV_8U); // Convert to 8-bit
             imshow("gpuI_t: GPU Naive", derivativeDisplay);
             waitKey(1);
@@ -127,7 +127,7 @@ int main(int argc, char* argv[]) {
 
         gpuI_x = gpuXY.convolveX(gpuSmoothedTXY, derivativeKernel);
         if (!gpuI_x.empty()) {
-            normalize(gpuI_x, derivativeDisplay, 0, 255, cv::NORM_MINMAX);
+            normalize(gpuI_x, derivativeDisplay, 0, 255, NORM_MINMAX);
             derivativeDisplay.convertTo(derivativeDisplay, CV_8U); // Convert to 8-bit
             imshow("gpuI_x: GPU Naive", derivativeDisplay);
             waitKey(1);
@@ -135,7 +135,7 @@ int main(int argc, char* argv[]) {
 
         gpuI_y = gpuXY.convolveY(gpuSmoothedTXY, derivativeKernel);
         if (!gpuI_y.empty()) {
-            normalize(gpuI_y, derivativeDisplay, 0, 255, cv::NORM_MINMAX);
+            normalize(gpuI_y, derivativeDisplay, 0, 255, NORM_MINMAX);
             derivativeDisplay.convertTo(derivativeDisplay, CV_8U); // Convert to 8-bit
             imshow("gpuI_y: GPU Naive", derivativeDisplay);
             waitKey(1);
