@@ -39,6 +39,8 @@ int main(int argc, char* argv[]) {
     TemporalConvolution cpuDerivativeT(Implementation::CPU_NAIVE, kernelSizeDerivative);
     Mat frame, cpuSmoothedT, cpuSmoothedTX, cpuSmoothedTXY, cpuI_t, cpuI_x, cpuI_y, derivativeDisplay;
 
+    /*
+
     while (capture.read(frame)) {
         // Display original image
         imshow("Original image", frame);
@@ -93,66 +95,72 @@ int main(int argc, char* argv[]) {
     capture.release();
     capture.open(video);
 
-    SpatialConvolution gpuXY(Implementation::GPU_NAIVE);
-    TemporalConvolution gpuSmoothT(Implementation::GPU_NAIVE, kernelSizeSmoothing);
-    TemporalConvolution gpuDerivativeT(Implementation::GPU_NAIVE, kernelSizeDerivative);
-    Mat gpuSmoothedT, gpuSmoothedTX, gpuSmoothedTXY, gpuI_t, gpuI_x, gpuI_y;
+        
 
-    int dimBlock[] = { 1024, 512, 256, 128, 64, 32 };
-    int numBlockDims = sizeof(dimBlock) / sizeof(dimBlock[0]);
+    SpatialConvolution gpuNaiveXY(Implementation::GPU_NAIVE);
+    TemporalConvolution gpuNaiveSmoothT(Implementation::GPU_NAIVE, kernelSizeSmoothing);
+    TemporalConvolution gpuNaiveDerivativeT(Implementation::GPU_NAIVE, kernelSizeDerivative);
+    Mat gpuNaiveSmoothedT, gpuNaiveSmoothedTX, gpuNaiveSmoothedTXY, gpuNaiveI_t, gpuNaiveI_x, gpuNaiveI_y;
 
-    for (int i = 0; i < numBlockDims; i++) {
+    */
+
+    int blockSizes[] = { 1 << 10, 1 << 9, 1 << 8, 1 << 7, 1 << 6, 1 << 5 };
+    int numBlockSizes = sizeof(blockSizes) / sizeof(blockSizes[0]);
+
+    /*
+
+    for (int i = 0; i < numBlockSizes; i++) {
 
         while (capture.read(frame)) {
 
             // GPU Implementation ---------------------------------------------------------------------
 
-            int blockSize = dimBlock[i];
+            int blockSize = blockSizes[i];
 
-            gpuSmoothedT = gpuSmoothT.convolve(frame, *gaussianKernel, blockSize);
-            if (!gpuSmoothedT.empty()) {
+            gpuNaiveSmoothedT = gpuNaiveSmoothT.convolve(frame, *gaussianKernel, blockSize);
+            if (!gpuNaiveSmoothedT.empty()) {
                 string windowName = "Smoothed T, GPU Naive, Block Size: " + to_string(blockSize);
-                imshow(windowName, gpuSmoothedT);
+                imshow(windowName, gpuNaiveSmoothedT);
                 waitKey(1);
             }
 
-            gpuSmoothedTX = gpuXY.convolveX(gpuSmoothedT, *gaussianKernel, blockSize);
-            if (!gpuSmoothedTX.empty()) {
+            gpuNaiveSmoothedTX = gpuNaiveXY.convolveX(gpuNaiveSmoothedT, *gaussianKernel, blockSize);
+            if (!gpuNaiveSmoothedTX.empty()) {
                 string windowName = "Smoothed TX, GPU Naive, Block Size: " + to_string(blockSize);
-                imshow(windowName, gpuSmoothedTX);
+                imshow(windowName, gpuNaiveSmoothedTX);
                 waitKey(1);
             }
 
-            gpuSmoothedTXY = gpuXY.convolveY(gpuSmoothedTX, *gaussianKernel, blockSize);
-            if (!gpuSmoothedTXY.empty()) {
+            gpuNaiveSmoothedTXY = gpuNaiveXY.convolveY(gpuNaiveSmoothedTX, *gaussianKernel, blockSize);
+            if (!gpuNaiveSmoothedTXY.empty()) {
                 string windowName = "Smoothed TXY, GPU Naive, Block Size: " + to_string(blockSize);
-                imshow(windowName, gpuSmoothedTXY);
+                imshow(windowName, gpuNaiveSmoothedTXY);
                 waitKey(1);
             }
 
-            gpuI_t = gpuDerivativeT.convolve(gpuSmoothedTXY, derivativeKernel, blockSize);
-            if (!gpuI_t.empty()) {
-                normalize(gpuI_t, derivativeDisplay, 0, 255, NORM_MINMAX);
+            gpuNaiveI_t = gpuNaiveDerivativeT.convolve(gpuNaiveSmoothedTXY, derivativeKernel, blockSize);
+            if (!gpuNaiveI_t.empty()) {
+                normalize(gpuNaiveI_t, derivativeDisplay, 0, 255, NORM_MINMAX);
                 derivativeDisplay.convertTo(derivativeDisplay, CV_8U); // Convert to 8-bit
-                string windowName = "gpuI_t, GPU Naive, Block Size: " + to_string(blockSize);
+                string windowName = "gpuNaiveI_t, GPU Naive, Block Size: " + to_string(blockSize);
                 imshow(windowName, derivativeDisplay);
                 waitKey(1);
             }
 
-            gpuI_x = gpuXY.convolveX(gpuSmoothedTXY, derivativeKernel, blockSize);
-            if (!gpuI_x.empty()) {
-                normalize(gpuI_x, derivativeDisplay, 0, 255, NORM_MINMAX);
+            gpuNaiveI_x = gpuNaiveXY.convolveX(gpuNaiveSmoothedTXY, derivativeKernel, blockSize);
+            if (!gpuNaiveI_x.empty()) {
+                normalize(gpuNaiveI_x, derivativeDisplay, 0, 255, NORM_MINMAX);
                 derivativeDisplay.convertTo(derivativeDisplay, CV_8U); // Convert to 8-bit
-                string windowName = "gpuI_x, GPU Naive, Block Size: " + to_string(blockSize);
+                string windowName = "gpuNaiveI_x, GPU Naive, Block Size: " + to_string(blockSize);
                 imshow(windowName, derivativeDisplay);
                 waitKey(1);
             }
 
-            gpuI_y = gpuXY.convolveY(gpuSmoothedTXY, derivativeKernel, blockSize);
-            if (!gpuI_y.empty()) {
-                normalize(gpuI_y, derivativeDisplay, 0, 255, NORM_MINMAX);
+            gpuNaiveI_y = gpuNaiveXY.convolveY(gpuNaiveSmoothedTXY, derivativeKernel, blockSize);
+            if (!gpuNaiveI_y.empty()) {
+                normalize(gpuNaiveI_y, derivativeDisplay, 0, 255, NORM_MINMAX);
                 derivativeDisplay.convertTo(derivativeDisplay, CV_8U); // Convert to 8-bit
-                string windowName = "gpuI_y, GPU Naive, Block Size: " + to_string(blockSize);
+                string windowName = "gpuNaiveI_y, GPU Naive, Block Size: " + to_string(blockSize);
                 imshow(windowName, derivativeDisplay);
                 waitKey(1);
             }
@@ -161,6 +169,100 @@ int main(int argc, char* argv[]) {
         capture.open(video);
     }
 
+    */
+
+    SpatialConvolution gpuSharedMemXY(Implementation::GPU_SHARED_MEMORY);
+    TemporalConvolution gpuSharedMemSmoothT(Implementation::GPU_SHARED_MEMORY, 
+        kernelSizeSmoothing);
+    TemporalConvolution gpuSharedMemDerivativeT(Implementation::GPU_SHARED_MEMORY, 
+        kernelSizeDerivative);
+    Mat gpuSharedMemSmoothedT, gpuSharedMemSmoothedTX, gpuSharedMemSmoothedTXY, 
+        gpuSharedMemI_t, gpuSharedMemI_x, gpuSharedMemI_y;
+
+    for (int i = 0; i < numBlockSizes; i++) {
+        while (capture.read(frame)) {
+
+            // GPU Implementation ---------------------------------------------------------------------
+
+            int blockSize = blockSizes[i];
+
+            int maxBlockSizeT = 1 << 8;
+            if (blockSize > maxBlockSizeT) {
+                gpuSharedMemSmoothedT = gpuSharedMemSmoothT.convolve(
+                    frame, *gaussianKernel, maxBlockSizeT);
+                if (!gpuSharedMemSmoothedT.empty()) {
+                    string windowName = "Smoothed T, GPU Shared Memory, Block Size: "
+                        + to_string(maxBlockSizeT);
+                    imshow(windowName, gpuSharedMemSmoothedT);
+                    waitKey(1);
+                }
+            } else {
+                gpuSharedMemSmoothedT = gpuSharedMemSmoothT.convolve(
+                    frame, *gaussianKernel, blockSize);
+                if (!gpuSharedMemSmoothedT.empty()) {
+                    string windowName = "Smoothed T, GPU Shared Memory, Block Size: "
+                        + to_string(blockSize);
+                    imshow(windowName, gpuSharedMemSmoothedT);
+                    waitKey(1);
+                }
+            }
+
+            gpuSharedMemSmoothedTX = gpuSharedMemXY.convolveX(
+                gpuSharedMemSmoothedT, *gaussianKernel, blockSize);
+            if (!gpuSharedMemSmoothedTX.empty()) {
+                string windowName = "Smoothed TX, GPU Shared Memory, Block Size: "
+                    + to_string(blockSize);
+                imshow(windowName, gpuSharedMemSmoothedTX);
+                waitKey(1);
+            }
+            /*
+            gpuSharedMemSmoothedTXY = gpuSharedMemXY.convolveY(
+                gpuSharedMemSmoothedTX, *gaussianKernel, blockSize, tileSize);
+            if (!gpuSharedMemSmoothedTXY.empty()) {
+                string windowName = "Smoothed TXY, GPU Shared Memory, Block Size: "
+                    + to_string(blockSize) + ", Tile Size: " + to_string(tileSize);
+                imshow(windowName, gpuSharedMemSmoothedTXY);
+                waitKey(1);
+            }
+
+            gpuSharedMemI_t = gpuSharedMemDerivativeT.convolve(
+                gpuSharedMemSmoothedTXY, derivativeKernel, blockSize);
+            if (!gpuSharedMemI_t.empty()) {
+                normalize(gpuSharedMemI_t, derivativeDisplay, 0, 255, NORM_MINMAX);
+                derivativeDisplay.convertTo(derivativeDisplay, CV_8U); // Convert to 8-bit
+                string windowName = "gpuSharedMemI_t, GPU Shared Memory, Block Size: "
+                    + to_string(blockSize) + ", Tile Size: " + to_string(tileSize);
+                imshow(windowName, derivativeDisplay);
+                waitKey(1);
+            }
+
+            gpuSharedMemI_x = gpuSharedMemXY.convolveX(
+                gpuSharedMemSmoothedTXY, derivativeKernel, blockSize, tileSize);
+            if (!gpuSharedMemI_x.empty()) {
+                normalize(gpuSharedMemI_x, derivativeDisplay, 0, 255, NORM_MINMAX);
+                derivativeDisplay.convertTo(derivativeDisplay, CV_8U); // Convert to 8-bit
+                string windowName = "gpuSharedMemI_x, GPU Shared Memory, Block Size: "
+                    + to_string(blockSize) + ", Tile Size: " + to_string(tileSize);
+                imshow(windowName, derivativeDisplay);
+                waitKey(1);
+            }
+
+            gpuSharedMemI_y = gpuSharedMemXY.convolveY(
+                gpuSharedMemSmoothedTXY, derivativeKernel, blockSize, tileSize);
+            if (!gpuSharedMemI_y.empty()) {
+                normalize(gpuSharedMemI_y, derivativeDisplay, 0, 255, NORM_MINMAX);
+                derivativeDisplay.convertTo(derivativeDisplay, CV_8U); // Convert to 8-bit
+                string windowName = "gpuSharedMemI_y, GPU Shared Memory, Block Size: "
+                    + to_string(blockSize) + ", Tile Size: " + to_string(tileSize);
+                imshow(windowName, derivativeDisplay);
+                waitKey(1);
+            }
+            */
+        }
+    capture.release();
+    capture.open(video);
+    }
+    
     // Cleanup
     delete gaussianKernel;
     gaussianKernel = nullptr;

@@ -34,28 +34,36 @@ Mat TemporalConvolution::cpuConvolve(const Mat& frame, const Kernel& kernel) {
     return convolved;
 }
 
-
-
 Mat TemporalConvolution::convolve(const Mat& frame, const Kernel& kernel) {
-    return convolve(frame, kernel, 0);
+    return convolve(frame, kernel, 0, 0);
 }
 
 Mat TemporalConvolution::convolve(const Mat& frame, const Kernel& kernel, int blockSize) {
+    return convolve(frame, kernel, blockSize, 0);
+}
+
+Mat TemporalConvolution::convolve(const Mat& frame, const Kernel& kernel, 
+    int blockSize, int tileSize) {
+
     switch (implementation) {
     case Implementation::CPU_NAIVE:
         return cpuConvolve(frame, kernel);
     case Implementation::GPU_NAIVE:
-        return gpuConvolveNaive(frame, kernel, blockSize);
-        //case Implementation::GPU_SHARED_MEMORY:
-        //    return gpuConvolveSharedMemory(frame, kernel, isX);
+        return gpuConvolve(frame, kernel, blockSize, 0, false, getTemporalConvolveNaiveKernel());
+    case Implementation::GPU_SHARED_MEMORY:
+        return gpuConvolve(frame, kernel, blockSize, tileSize, true,
+            getTemporalConvolveSharedMemKernel());
     default:
         throw std::invalid_argument("Unknown implementation");
     }
 }
 
-Mat TemporalConvolution::gpuConvolveNaive(const Mat& frame, const Kernel& kernel, int blockSize) {
+Mat TemporalConvolution::gpuConvolve(const Mat& frame, const Kernel& kernel, 
+    int blockSize, const int tileSize, const bool useSharedMemory, 
+    void (*convolveKernel)(float*, float*, float*, int, int, int, int)) {
+
     if (frame.empty()) return frame;
 
     // Call the wrapper function
-    return launchConvolveNaiveKernel(frame, kernel, blockSize);
+    return launchConvolveKernel(frame, kernel, blockSize, tileSize, useSharedMemory, convolveKernel);
 }

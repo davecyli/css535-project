@@ -65,21 +65,24 @@ Mat SpatialConvolution::cpuConvolve(const Mat& frame, const Kernel& kernel, cons
     return convolved;
 }
 
-Mat SpatialConvolution::gpuConvolveNaive(const Mat& frame, const Kernel& kernel, bool isX, int blockSize){
+Mat SpatialConvolution::gpuConvolve(const Mat& frame, const Kernel& kernel, bool isX, 
+    int blockSize, void (*convolveKernel)(float*, float*, float*, int, int, int, bool))
+{
     if (frame.empty()) return frame;
 
     Mat result;
 
     if (isX) {
         // Apply convolution directly in the X direction
-        result = launchConvolveNaiveKernel(frame, kernel, true, blockSize);
+        result = launchConvolveKernel(frame, kernel, true, blockSize, convolveKernel);
     }
     else {
         // Transpose the frame, convolve in X (now acting as Y), then transpose back
-        Mat transposed;
-        cv::transpose(frame, transposed);  // Swap rows and columns
+        Mat originalTransposed;
+        cv::transpose(frame, originalTransposed);  // Swap rows and columns
 
-        Mat convolvedTransposed = launchConvolveNaiveKernel(transposed, kernel, true, blockSize);
+        Mat convolvedTransposed = launchConvolveKernel(originalTransposed, kernel, true, blockSize,
+            convolveKernel);
 
         // Transpose back to restore original orientation
         cv::transpose(convolvedTransposed, result);
@@ -94,9 +97,9 @@ Mat SpatialConvolution::convolve(const Mat& frame, const Kernel& kernel, bool is
     case Implementation::CPU_NAIVE:
         return cpuConvolve(frame, kernel, isX);
     case Implementation::GPU_NAIVE:
-        return gpuConvolveNaive(frame, kernel, isX, blockSize);
-        //case Implementation::GPU_SHARED_MEMORY:
-        //    return gpuConvolveSharedMemory(frame, kernel, isX);
+        return gpuConvolve(frame, kernel, isX, blockSize, getSpatialConvolveNaiveKernel());
+    case Implementation::GPU_SHARED_MEMORY:
+        return gpuConvolve(frame, kernel, isX, blockSize, getSpatialConvolveSharedMemKernel());
     default:
         throw std::invalid_argument("Unknown implementation");
     }
