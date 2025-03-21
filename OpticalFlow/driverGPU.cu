@@ -46,11 +46,6 @@ int main(int argc, char* argv[]) {
     // Try to spawn a new viewer instance.
     rerun::Error error = rec.spawn();
 
-    VideoCapture capture(videoFilePath);
-    if (!capture.isOpened()) {
-        cerr << "Error: Unable to open video file " << videoFilePath << endl;
-        return -1;
-    }
 
     // Create a 1D Gaussian kernel
     int kernelSizeSmoothing = 25;
@@ -77,6 +72,11 @@ int main(int argc, char* argv[]) {
 	ofstream resultsFile("results.txt");
 
     for (int i = 0; i < numBlockSizes; i++) {
+        VideoCapture capture(videoFilePath);
+        if (!capture.isOpened()) {
+            cerr << "Error: Unable to open video file " << videoFilePath << endl;
+            return -1;
+        }
         while (capture.read(frame)) {
 
             // GPU Implementation ---------------------------------------------------------------------
@@ -195,12 +195,13 @@ int main(int argc, char* argv[]) {
                 index++;
             }
         }
+
+        capture.release();
     }
 
     // Cleanup
     delete gaussianKernel;
     gaussianKernel = nullptr;
-    capture.release();
 
     return 0;
 }

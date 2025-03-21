@@ -46,12 +46,6 @@ int main(int argc, char* argv[]) {
     // Try to spawn a new viewer instance.
     rerun::Error error = rec.spawn();
 
-    VideoCapture capture(videoFilePath);
-    if (!capture.isOpened()) {
-        cerr << "Error: Unable to open video file " << videoFilePath << endl;
-        return -1;
-    }
-
     // Create a 1D Gaussian kernel
     int kernelSizeSmoothing = 25;
     float sigma = 3.2f;
@@ -78,6 +72,11 @@ int main(int argc, char* argv[]) {
 	ofstream resultsFile("results.txt");
 
     for (int i = 0; i < numBlockSizes; i++) {
+        VideoCapture capture(videoFilePath);
+        if (!capture.isOpened()) {
+            cerr << "Error: Unable to open video file " << videoFilePath << endl;
+            return -1;
+        }
         while (capture.read(frame)) {
 
             // GPU Implementation ---------------------------------------------------------------------
@@ -104,7 +103,7 @@ int main(int argc, char* argv[]) {
             else {
                 gpuSharedMemSmoothedT = gpuSharedMemSmoothT.convolve(frame, *gaussianKernel, blockSize);
                 if (!gpuSharedMemSmoothedT.empty()) {
-                    rec.log("1.T.GPUTime", rerun::Scalar(profiler.stopCPUTimer()));
+                    rec.log("1.T.CPUTime", rerun::Scalar(profiler.stopCPUTimer()));
                     normalize(gpuSharedMemSmoothedT, smoothedDisplay, 0, 255, cv::NORM_MINMAX);
                     smoothedDisplay.convertTo(smoothedDisplay, CV_8U); // Convert to 8-bit
                     rec.log("1.T", rerun::Image::from_greyscale8(smoothedDisplay, { uint32_t(smoothedDisplay.cols), uint32_t(smoothedDisplay.rows) }));
@@ -210,12 +209,12 @@ int main(int argc, char* argv[]) {
                 index++;
             }
         }
+        capture.release();
     }
 
     // Cleanup
     delete gaussianKernel;
     gaussianKernel = nullptr;
-    capture.release();
 
     return 0;
 }
