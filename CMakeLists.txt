@@ -25,10 +25,11 @@ link_directories(${OpenCV_LIB_DIR})
 set(MAIN_SOURCES
     OpticalFlow/circularBuffer.cpp
     OpticalFlow/convolution.cpp
-    OpticalFlow/driver.cu
     OpticalFlow/kernel.cpp
     OpticalFlow/spatialConvolution.cpp
     OpticalFlow/temporalConvolution.cpp
+    OpticalFlow/spatialConvolution.cu
+    OpticalFlow/temporalConvolution.cu
     OpticalFlow/profiler.cu
 	OpticalFlow/least_squares_solver.cpp
 	OpticalFlow/least_squares_solver_cuda.cu
@@ -67,13 +68,31 @@ FetchContent_MakeAvailable(rerun_sdk)
 find_package (Eigen3 3.3 REQUIRED NO_MODULE)
 include_directories(${EIGEN_INCLUDE_DIR})
 
-### OPENCV Driver Project
-add_executable(driver ${MAIN_SOURCES} ${MAIN_HEADERS})
-# set_target_properties(driver PROPERTIES EXCLUDE_FROM_ALL ON)  # Exclude from ALL_BUILD
+### OPENCV Combination Driver Project
+add_executable(driver OpticalFlow/driver.cu ${MAIN_SOURCES} ${MAIN_HEADERS})
 set_target_properties(driver PROPERTIES CUDA_SEPARABLE_COMPILATION ON EXCLUDE_FROM_ALL ON)  # Exclude from ALL_BUILD
-#target_compile_options(driver PRIVATE  /EHsc)
 target_compile_options(driver PRIVATE -Xcompiler "/EHsc /Zi /Ob0")
 target_link_libraries(driver ${OpenCV_LIBS} rerun_sdk Eigen3::Eigen)
+
+### OPENCV CPU Driver Project
+add_executable(driverCPU OpticalFlow/driverCPU.cu ${MAIN_SOURCES} ${MAIN_HEADERS})
+set_target_properties(driverCPU PROPERTIES CUDA_SEPARABLE_COMPILATION ON EXCLUDE_FROM_ALL ON)  # Exclude from ALL_BUILD
+target_compile_options(driverCPU PRIVATE -Xcompiler "/EHsc /Zi /Ob0")
+target_link_libraries(driverCPU ${OpenCV_LIBS} rerun_sdk Eigen3::Eigen)
+
+### OPENCV GPU Driver Project
+add_executable(driverGPU OpticalFlow/driverGPU.cu ${MAIN_SOURCES} ${MAIN_HEADERS})
+set_target_properties(driverGPU PROPERTIES CUDA_SEPARABLE_COMPILATION ON EXCLUDE_FROM_ALL ON)  # Exclude from ALL_BUILD
+target_compile_options(driverGPU PRIVATE -Xcompiler "/EHsc /Zi /Ob0")
+target_link_libraries(driverGPU ${OpenCV_LIBS} rerun_sdk Eigen3::Eigen)
+
+### OPENCV GPU Driver Project
+add_executable(driverGPUSharedMem OpticalFlow/driverGPUSharedMem.cu ${MAIN_SOURCES} ${MAIN_HEADERS})
+set_target_properties(driverGPUSharedMem PROPERTIES CUDA_SEPARABLE_COMPILATION ON EXCLUDE_FROM_ALL ON)  # Exclude from ALL_BUILD
+target_compile_options(driverGPUSharedMem PRIVATE -Xcompiler "/EHsc /Zi /Ob0")
+target_link_libraries(driverGPUSharedMem ${OpenCV_LIBS} rerun_sdk Eigen3::Eigen)
+
+
 
 ### Test CUDA Project
 add_executable(test_cuda ${CUDA_SOURCES} ${CUDA_HEADERS})
@@ -99,5 +118,23 @@ set(OPENCV_DLLS
 foreach(DLL ${OPENCV_DLLS})
     add_custom_command(TARGET driver POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different "${DLL}" $<TARGET_FILE_DIR:driver>
+    )
+endforeach()
+
+foreach(DLL ${OPENCV_DLLS})
+    add_custom_command(TARGET driverCPU POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${DLL}" $<TARGET_FILE_DIR:driverCPU>
+    )
+endforeach()
+
+foreach(DLL ${OPENCV_DLLS})
+    add_custom_command(TARGET driverGPU POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${DLL}" $<TARGET_FILE_DIR:driverGPU>
+    )
+endforeach()
+
+foreach(DLL ${OPENCV_DLLS})
+    add_custom_command(TARGET driverGPUSharedMem POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${DLL}" $<TARGET_FILE_DIR:driverGPUSharedMem>
     )
 endforeach()

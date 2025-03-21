@@ -42,7 +42,7 @@ int main(int argc, char* argv[]) {
     }
 
     // Create a new `RecordingStream` which sends data over TCP to the viewer process.
-    const rerun::RecordingStream rec = rerun::RecordingStream("OpticalFlow-driver.cu");
+    const rerun::RecordingStream rec = rerun::RecordingStream("OpticalFlow");
     // Try to spawn a new viewer instance.
     rerun::Error error = rec.spawn();
 
