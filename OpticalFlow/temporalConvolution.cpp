@@ -49,6 +49,7 @@ Mat TemporalConvolution::convolve(const Mat& frame, const Kernel& kernel,
     case Implementation::CPU_NAIVE:
         return cpuConvolve(frame, kernel);
     case Implementation::GPU_NAIVE:
+
         return gpuConvolve(frame, kernel, blockSize, 0, false, getTemporalConvolveNaiveKernel());
     case Implementation::GPU_SHARED_MEMORY:
         return gpuConvolve(frame, kernel, blockSize, tileSize, true,

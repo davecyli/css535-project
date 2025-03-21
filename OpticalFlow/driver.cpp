@@ -102,7 +102,6 @@ int main(int argc, char* argv[]) {
     int numBlockSizes = sizeof(blockSizes) / sizeof(blockSizes[0]);
 
     for (int i = 0; i < numBlockSizes; i++) {
-
         while (capture.read(frame)) {
 
             // GPU Implementation ---------------------------------------------------------------------
@@ -139,6 +138,7 @@ int main(int argc, char* argv[]) {
                 waitKey(1);
             }
 
+
             gpuNaiveI_x = gpuNaiveXY.convolveX(gpuNaiveSmoothedTXY, derivativeKernel, blockSize);
             if (!gpuNaiveI_x.empty()) {
                 normalize(gpuNaiveI_x, derivativeDisplay, 0, 255, NORM_MINMAX);
@@ -147,6 +147,7 @@ int main(int argc, char* argv[]) {
                 imshow(windowName, derivativeDisplay);
                 waitKey(1);
             }
+
 
             gpuNaiveI_y = gpuNaiveXY.convolveY(gpuNaiveSmoothedTXY, derivativeKernel, blockSize);
             if (!gpuNaiveI_y.empty()) {
@@ -252,7 +253,6 @@ int main(int argc, char* argv[]) {
     capture.release();
     capture.open(video);
     }
-    
     // Cleanup
     delete gaussianKernel;
     gaussianKernel = nullptr;
