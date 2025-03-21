@@ -10,11 +10,8 @@
 
 void LeastSquaresSolver::computeOpticalFlow(const Mat& Ix, const Mat& Iy, const Mat& It, Mat& flowX, Mat& flowY) {
     // Define constants
-    const float NOISE_THRESHOLD = 0.05;  // Threshold for reliable eigenvalues
-    const float MIN_DETERMINANT = 1e-4;  // Threshold for matrix invertibility
-    const float SIGMA1 = 0.08;  // Noise parameter 1
-    const float SIGMA2 = 1.0;   // Noise parameter 2
-    const float SIGMAP = 2.0;   // Noise parameter for optical flow reliability
+    const float NOISE_THRESHOLD = 0;  // Threshold for reliable eigenvalues
+    const float MIN_DETERMINANT = 0;  // Threshold for matrix invertibility
 	
 	int windowSize = 5; // Grid size of pixels to consider (n x n grid to calculate the pixel at the center)
 	vector<float> weights = {0.0625, 0.25, 0.375, 0.25, 0.0625}; // Pixel weights
@@ -37,13 +34,13 @@ void LeastSquaresSolver::computeOpticalFlow(const Mat& Ix, const Mat& Iy, const 
                     float iy = Iy.at<float>(y + i, x + j);
                     float it = It.at<float>(y + i, x + j);
                     
-                    A.at<float>(0, 0) += w * (ix * ix);
-                    A.at<float>(0, 1) += w * (ix * iy);
-                    A.at<float>(1, 0) += w * (ix * iy);
-                    A.at<float>(1, 1) += w * (iy * iy);
+                    A.at<float>(0, 0) += w *  w * (ix * ix);
+                    A.at<float>(0, 1) += w *  w * (ix * iy);
+                    A.at<float>(1, 0) += w *  w * (ix * iy);
+                    A.at<float>(1, 1) += w *  w * (iy * iy);
 
-                    B.at<float>(0, 0) -= w * (ix * it);
-                    B.at<float>(1, 0) -= w * (iy * it);
+                    B.at<float>(0, 0) -= w *  w * (ix * it);
+                    B.at<float>(1, 0) -= w *  w * (iy * it);
                 }
             }
 
@@ -56,6 +53,7 @@ void LeastSquaresSolver::computeOpticalFlow(const Mat& Ix, const Mat& Iy, const 
             if (lambda_max < NOISE_THRESHOLD) {
                 flowX.at<float>(y, x) = 0;
                 flowY.at<float>(y, x) = 0;
+				cout << "DISCARDED BECAUSE OF NOISE" << endl;
                 continue;
             }
 
@@ -72,7 +70,7 @@ void LeastSquaresSolver::computeOpticalFlow(const Mat& Ix, const Mat& Iy, const 
 void runTest(const string& testName, const Mat& Ix, const Mat& Iy, const Mat& It, const Mat& expectedFlowX, const Mat& expectedFlowY) {
     Mat flowX = Mat::zeros(Ix.size(), CV_32F);
     Mat flowY = Mat::zeros(Iy.size(), CV_32F);
-    
+
     LeastSquaresSolver solver;
     solver.computeOpticalFlow(Ix, Iy, It, flowX, flowY);
     
@@ -99,7 +97,7 @@ void runTest(const string& testName, const Mat& Ix, const Mat& Iy, const Mat& It
 }
 
 
-int main() {
+int notmain() {
     Mat Ix = Mat::zeros(5, 5, CV_32F);
     Mat Iy = Mat::zeros(5, 5, CV_32F);
     Mat It = Mat::zeros(5, 5, CV_32F);
@@ -131,15 +129,40 @@ int main() {
                                -5, -6, -7, -8, -9);
 	expectedFlowX = (Mat_<float>(5,5) << 0, 0, 0, 0, 0,
 										 0, 0, 0, 0, 0,
-										 0, 0, 0.53214777, 0, 0,
+										 0, 0, 0.52827948, 0, 0,
 										 0, 0, 0, 0, 0,
 										 0, 0, 0, 0, 0);
     expectedFlowY = (Mat_<float>(5,5) << 0, 0, 0, 0, 0,
 										 0, 0, 0, 0, 0,
-										 0, 0, -0.46785226, 0, 0,
+										 0, 0, -0.47172052, 0, 0,
 										 0, 0, 0, 0, 0,
 										 0, 0, 0, 0, 0);
     runTest("NonZeroFlow", Ix, Iy, It, expectedFlowX, expectedFlowY);
-    
+	Ix = (Mat_<float>(5,5) << 0.1, 0.2, 0.3, 0.4, 0.5,
+                               0.2, 0.3, 0.4, 0.5, 0.6,
+                               0.3, 0.4, 1, 0.6, 0.7,
+                               0.4, 0.5, 0.6, 0.7, 0.8,
+                               0.5, 0.6, 0.7, 0.8, 0.9);
+    Iy = (Mat_<float>(5,5) << 0.9, 0.8, 0.7, 0.6, 0.5,
+                               0.8, 0.7, 0.6, 0.5, 0.4,
+                               0.7, 0.6, 1, 0.4, 0.3,
+                               0.6, 0.5, 0.4, 0.3, 0.2,
+                               0.5, 0.4, 0.3, 0.2, 0.1);
+    It = (Mat_<float>(5,5) << -0.1, -0.2, -0.3, -0.4, -0.5,
+                               -0.2, -0.3, -0.4, -0.5, -0.6,
+                               -0.3, -0.4, -0.5, -0.6, -0.7,
+                               -0.4, -0.5, -0.6, -0.7, -0.8,
+                               -0.5, -0.6, -0.7, -0.8, -0.9);
+	expectedFlowX = (Mat_<float>(5,5) << 0, 0, 0, 0, 0,
+										 0, 0, 0, 0, 0,
+										 0, 0, 0.85252851, 0, 0,
+										 0, 0, 0, 0, 0,
+										 0, 0, 0, 0, 0);
+    expectedFlowY = (Mat_<float>(5,5) << 0, 0, 0, 0, 0,
+										 0, 0, 0, 0, 0,
+										 0, 0, -0.14747618, 0, 0,
+										 0, 0, 0, 0, 0,
+										 0, 0, 0, 0, 0);
+	runTest("NonZeroFlow2", Ix, Iy, It, expectedFlowX, expectedFlowY);
     return 0;
 }

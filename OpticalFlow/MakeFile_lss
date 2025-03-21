@@ -20,9 +20,9 @@ CFLAGS = /EHsc /I$(OPENCV_INCLUDE) /I.
 LFLAGS = /LIBPATH:$(OPENCV_LIB) $(OPENCV_LIBS)
 
 # Source, object, and target names for OpenCV part
-OCV_SRCS = least_squares_test.cpp
-OCV_OBJS = least_squares_test.obj least_squares_solver.obj
-OCV_TARGET = least_squares_test.exe
+OCV_SRCS = least_squares_solver.cpp
+OCV_OBJS = least_squares_solver.obj
+OCV_TARGET = least_squares_solver.exe
 
 # ----- Default Target -----
 # Build both executables
@@ -35,9 +35,6 @@ $(OCV_TARGET): $(OCV_OBJS)
 	copy $(OPENCV_DLL) .
 	copy $(OPENCV_FFMPEG_DLL) .
 	copy $(OPENCV_MSMF_DLL) .
-
-least_squares_test.obj: least_squares_test.cpp least_squares_solver.h
-	$(CC) $(CFLAGS) /c least_squares_test.cpp
 
 least_squares_solver.obj: least_squares_solver.cpp least_squares_solver.h
 	$(CC) $(CFLAGS) /c least_squares_solver.cpp

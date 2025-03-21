@@ -68,3 +68,10 @@ Rerun is a multimodal data logger and visualizer. This will accelerate the way w
 - Rename executable to `rerun.exe`
 - Add path of folder or exe to windows environment path for example `C:\\bin`
 
+## Verifying GPU Least Squares Solver implementation
+Run the program as described above then run:
+```
+FC expected_results.txt .build\results.txt
+```
+From within the project root directory to verify that the results you are getting are the same as expected.
+
