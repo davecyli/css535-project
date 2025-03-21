@@ -1,4 +1,5 @@
 #include "convolution.h"
+#include "cuda_runtime.h"
 
 Mat Convolution::convert(const Mat& frame) const {
     if (frame.empty()) return frame;

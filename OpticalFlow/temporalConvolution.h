@@ -10,10 +10,26 @@ using namespace cv;
 
 class TemporalConvolution : public Convolution {
 public:
-    TemporalConvolution(int kernelSize);
+    TemporalConvolution(Implementation impl, int kernelSize);
+    ~TemporalConvolution();
+
     Mat convolve(const Mat& frame, const Kernel& kernel);
+    Mat convolve(const Mat& frame, const Kernel& kernel, int blockSize);
 private:
-    CircularBuffer buffer;
+    CircularBuffer<Mat> cpuBuffer;
+    CircularBuffer<float*> gpuBuffer;
+
+    float* d_frames = nullptr;
+    float* d_convolved = nullptr;
+    float* d_kernel = nullptr;
+
+    bool isFirstPass = true;
+    int frameIndex = 0;
+
+    Mat cpuConvolve(const Mat& frame, const Kernel& kernel);
+    Mat gpuConvolveNaive(const Mat& frame, const Kernel& kernel, int blockSize);
+
+    Mat launchConvolveNaiveKernel(const Mat& frame, const Kernel& kernel, int blockSize);
 };
 
 #endif // TEMPORALCONVOLUTION_H
