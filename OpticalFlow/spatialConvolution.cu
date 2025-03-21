@@ -51,90 +51,6 @@ __global__ void spatialConvolveSharedMemKernel(float* input, float* output, floa
     // Global thread index
     int globalIdx = bx * bdx + tx;
 
-    // Load kernel into shared memory (cooperatively)
-    if (tx < kernelSize) {
-        s_kernel[tx] = kernel[tx];
-    }
-
-    __syncthreads();
-
-    // Calculate the starting position for shared memory loading
-    int startX, startY;
-    if (isX) {
-        // For X convolution
-        startX = (bx * bdx) % width - halfKernel;
-        startY = (bx * bdx) / width;
-    }
-    else {
-        // For Y convolution
-        startX = (bx * bdx) / height;
-        startY = (bx * bdx) % height - halfKernel;
-    }
-
-    // Number of elements to load into shared memory
-    int sharedSize = bdx + 2 * halfKernel;
-
-    if (isX) {
-        // Load horizontal strip (for X convolution)
-        for (int i = tx; i < sharedSize; i += bdx) {
-            int loadCol = startX + i;
-            int loadRow = startY;
-
-            // Handle boundary conditions
-            if (loadRow >= 0 && loadRow < height && loadCol >= 0 && loadCol < width) {
-                s_data[i] = input[loadRow * width + loadCol];
-            }
-            else {
-                s_data[i] = 0.0f; // Zero padding
-            }
-        }
-    }
-    else {
-        // Load vertical strip (for Y convolution)
-        for (int i = tx; i < sharedSize; i += bdx) {
-            int loadCol = startX;
-            int loadRow = startY + i;
-
-            // Handle boundary conditions
-            if (loadRow >= 0 && loadRow < height && loadCol >= 0 && loadCol < width) {
-                s_data[i] = input[loadRow * width + loadCol];
-            }
-            else {
-                s_data[i] = 0.0f; // Zero padding
-            }
-        }
-    }
-
-    __syncthreads(); // Ensure all data is loaded before computation
-
-    // Check if this thread is within image bounds
-    if (globalIdx >= width * height || x >= width || y >= height) return;
-
-    // Perform convolution using shared memory
-    float sum = 0.0f;
-
-    if (isX) {
-        // For X direction convolution
-        // Find the position of this thread's data in shared memory
-        // This accounts for the halo region
-        int s_pos = threadIdx.x;
-
-        // Apply convolution
-        for (int k = 0; k < kernelSize; k++) {
-            sum += s_data[s_pos + k] * s_kernel[k];
-        }
-    }
-    else {
-        // For Y direction convolution
-        // Handle the case where threads in a block access different rows but same column
-        int s_pos = threadIdx.x;
-
-        // Apply convolution
-        for (int k = 0; k < kernelSize; k++) {
-            sum += s_data[s_pos + k] * s_kernel[k];
-        }
-    }
-
     // Determine x, y coordinates based on direction of convolution
     int x, y;
     if (isX) {
@@ -146,12 +62,91 @@ __global__ void spatialConvolveSharedMemKernel(float* input, float* output, floa
         x = globalIdx / height;
     }
 
-    // Write result to global memory
-    if (x < width && y < height) {
-        output[y * width + x] = sum;
+    // Load kernel into shared memory (cooperatively)
+    if (tx < kernelSize) {
+        s_kernel[tx] = kernel[tx];
     }
+
+    __syncthreads();
+
+    // Number of elements to load into shared memory
+    int sharedSize = bdx + 2 * halfKernel;
+
+    // X-direction convolution
+    if (isX) {
+        // Calculate block starting x-position (leftmost needed pixel)
+        // Find which block of columns we're in
+        int blockStartX = (blockIdx.x * blockDim.x) - halfKernel;
+        // Adjust for the specific row
+        while (blockStartX < 0) blockStartX += width;
+        blockStartX = blockStartX % width;
+
+        // Each thread loads one or more elements into shared memory
+        int sharedSize = blockDim.x + kernelSize - 1;
+        for (int i = threadIdx.x; i < sharedSize; i += blockDim.x) {
+            int loadX = blockStartX + i;
+            // Handle wrap-around for horizontal convolution
+            if (loadX >= width) loadX -= width;
+
+            // Only load valid data for this row
+            if (y < height) {
+                s_data[i] = input[y * width + loadX];
+            }
+            else {
+                s_data[i] = 0.0f;
+            }
+        }
+
+        __syncthreads(); // Wait for all data to be loaded
+
+        // Perform convolution using shared memory
+        float sum = 0.0f;
+        for (int k = 0; k < kernelSize; k++) {
+            // Map from global position to position in shared memory tile
+            int s_x = threadIdx.x + halfKernel;
+            sum += s_data[s_x - halfKernel + k] * s_kernel[k];
+        }
+
+        output[globalIdx] = sum;
+    }
+    // Y-direction convolution
     else {
-        output[y * width + x] = 0;  // Prevent uninitialized access
+        // Each thread block handles a set of columns
+        // Each thread processes a different row in the same column
+
+        // Calculate block starting position (in terms of rows)
+        int blockStartY = (blockIdx.x * blockDim.x) - halfKernel;
+        // Adjust if negative
+        while (blockStartY < 0) blockStartY += height;
+        blockStartY = blockStartY % height;
+
+        // Load data into shared memory
+        int sharedSize = blockDim.x + kernelSize - 1;
+        for (int i = threadIdx.x; i < sharedSize; i += blockDim.x) {
+            int loadY = blockStartY + i;
+            // Handle wrap-around
+            if (loadY >= height) loadY -= height;
+
+            // Only load valid data for this column
+            if (x < width) {
+                s_data[i] = input[loadY * width + x];
+            }
+            else {
+                s_data[i] = 0.0f;
+            }
+        }
+
+        __syncthreads(); // Wait for all data to be loaded
+
+        // Perform convolution
+        float sum = 0.0f;
+        for (int k = 0; k < kernelSize; k++) {
+            // Map from global position to position in shared memory tile
+            int s_y = threadIdx.x + halfKernel;
+            sum += s_data[s_y - halfKernel + k] * s_kernel[k];
+        }
+
+        output[globalIdx] = sum;
     }
 }
 
