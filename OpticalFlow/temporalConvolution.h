@@ -15,6 +15,7 @@ public:
 
     Mat convolve(const Mat& frame, const Kernel& kernel);
     Mat convolve(const Mat& frame, const Kernel& kernel, int blockSize);
+    Mat convolve(const Mat& frame, const Kernel& kernel, int blockSize, int tileSize);
 private:
     CircularBuffer<Mat> cpuBuffer;
     CircularBuffer<float*> gpuBuffer;
@@ -27,9 +28,29 @@ private:
     int frameIndex = 0;
 
     Mat cpuConvolve(const Mat& frame, const Kernel& kernel);
-    Mat gpuConvolveNaive(const Mat& frame, const Kernel& kernel, int blockSize);
+    Mat gpuConvolve(const Mat& frame, const Kernel& kernel,
+        int blockSize, const int tileSize, const bool useSharedMemory,
+        void (*convolveKernel)(float*, float*, float*, int, int, int, int));
 
-    Mat launchConvolveNaiveKernel(const Mat& frame, const Kernel& kernel, int blockSize);
+    Mat launchConvolveKernel(const Mat& frame, const Kernel& kernel, int blockSize, 
+        const int tileSize, const bool useSharedMemory, 
+        void (*convolveKernel)(float*, float*, float*, int, int, int, int));
 };
+
+typedef void (*TemporalConvolveKernelPtr)(float*, float*, float*, int, int, int, int);
+
+#ifdef __CUDACC__  // Compile with nvcc
+extern "C" { 
+    __global__ void temporalConvolveNaiveKernel(float* d_frames, float* d_output,
+        float* d_kernel, int frameSize, int bufferSize, int currentIndex, int tileSize);
+
+    __global__ void temporalConvolveSharedMemKernel(float* d_frames, float* d_output, 
+        float* d_kernel, int frameSize, int bufferSize, int currentIndex, int tileSize);
+}
+#endif // __CUDACC__
+
+// Wrapper function visible to all compilers
+TemporalConvolveKernelPtr getTemporalConvolveNaiveKernel();
+TemporalConvolveKernelPtr getTemporalConvolveSharedMemKernel();
 
 #endif // TEMPORALCONVOLUTION_H
