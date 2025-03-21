@@ -1,4 +1,19 @@
-// Better than dequeue for locality and GPU
+/* ------------------------------------------------------------------------------------------------
+Alanna Koser, David Li, Jonah Kolar
+CSS 535 A
+March 23, 2025
+Final Project: Optical Flow
+
+Description:
+
+Constructs a lightweight circular buffer with O(1) index-based access, specialized for maintaining
+a fixed window of frames without needing to shift data in memory. It avoids frequent allocations/
+deallocations that might occur with other container types.
+
+Original intention was for better cache locality than dequeue, but the frames are large, and so
+there is no locality between the pixels of interest, which are the corresponding pixels across
+consecutive frames. They will be too far apart in memory.
+------------------------------------------------------------------------------------------------ */
 
 #ifndef CIRCULARBUFFER_H
 #define CIRCULARBUFFER_H

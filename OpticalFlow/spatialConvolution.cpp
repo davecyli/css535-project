@@ -1,3 +1,14 @@
+/* ------------------------------------------------------------------------------------------------
+Alanna Koser, David Li, Jonah Kolar
+CSS 535 A
+March 23, 2025
+Final Project: Optical Flow
+
+Description:
+Implements 1D spatial convolution operations across video frames for optical flow processing with
+support for both CPU and GPU implementations. This includes CUDA kernels for efficient parallel 
+processing on GPU hardware.
+------------------------------------------------------------------------------------------------ */
 #include "spatialConvolution.h"
 #include <cuda_runtime_api.h>
 #include <cuda_runtime.h>
@@ -5,29 +16,65 @@
 
 using namespace cv;
 
+/**
+ * @brief Calls convolve method with appropriate inputs for X convolution
+ *   Used for either CPU implementation or GPU implementation with default block size
+ *
+ * @param frame: Input image frame
+ * @param kernel: Convolution kernel to apply
+ * @return Mat: Convolved image
+ */
 Mat SpatialConvolution::convolveX(const Mat& frame, const Kernel& kernel) {
-    Mat converted = convert(frame);
-    return convolve(converted, kernel, true, 0);
+    return convolve(frame, kernel, true, 0);
 }
 
+/**
+ * @brief Calls convolve method with appropriate inputs for X convolution
+ *   Used for GPU implementation with specified block size
+ *
+ * @param frame: Input image frame
+ * @param kernel: Convolution kernel to apply
+ * @param blockSize: CUDA thread block size
+ * @return Mat: Convolved image
+ */
 Mat SpatialConvolution::convolveX(const Mat& frame, const Kernel& kernel, int blockSize) {
-    Mat converted = convert(frame);
-    return convolve(converted, kernel, true, blockSize);
+    return convolve(frame, kernel, true, blockSize);
 }
 
+/**
+ * @brief Calls convolve method with appropriate inputs for Y convolution
+ *   Used for either CPU implementation or GPU implementation with default block size
+ *
+ * @param frame: Input image frame
+ * @param kernel: Convolution kernel to apply
+ * @return Mat: Convolved image
+ */
 Mat SpatialConvolution::convolveY(const Mat& frame, const Kernel& kernel) {
-    Mat converted = convert(frame);
-    return convolve(converted, kernel, false, 0);
+    return convolve(frame, kernel, false, 0);
 }
 
+/**
+ * @brief Calls convolve method with appropriate inputs for Y convolution
+ *   Used for GPU implementation with specified block size
+ *
+ * @param frame: Input image frame
+ * @param kernel: Convolution kernel to apply
+ * @param blockSize: CUDA thread block size
+ * @return Mat: Convolved image
+ */
 Mat SpatialConvolution::convolveY(const Mat& frame, const Kernel& kernel, int blockSize) {
-    Mat converted = convert(frame);
-    return convolve(converted, kernel, false, blockSize);
+    return convolve(frame, kernel, false, blockSize);
 }
 
+/**
+ * @brief CPU implementation of 1D convolution
+ *
+ * @param frame: Input image frame
+ * @param kernel: Convolution kernel to apply
+ * @param isX: Direction flag (true for X-axis, false for Y-axis)
+ * @return Mat: Convolved image
+ */
 Mat SpatialConvolution::cpuConvolve(const Mat& frame, const Kernel& kernel, const bool isX) {
-
-    if (frame.empty()) return frame;
 
     int rows = frame.rows;
     int cols = frame.cols;
@@ -43,6 +90,7 @@ Mat SpatialConvolution::cpuConvolve(const Mat& frame, const Kernel& kernel, cons
     // Output matrix
     Mat convolved(rows, cols, frame.type());
 
+    // Iterate over all pixels in the image
     for (int i = 0; i < rows; ++i) {
         for (int j = 0; j < cols; ++j) {
             float sum = 0.0f;
@@ -53,7 +101,7 @@ Mat SpatialConvolution::cpuConvolve(const Mat& frame, const Kernel& kernel, cons
                     sum += inputFrame.at<float>(i, idx) * kernel.getElement(k + halfKernel);
                 }
             }
-            convolved.at<float>(i, j) = sum; // Store
+            convolved.at<float>(i, j) = sum; // Store result
         }
     }
 
@@ -65,15 +113,23 @@ Mat SpatialConvolution::cpuConvolve(const Mat& frame, const Kernel& kernel, cons
     return convolved;
 }
 
+/**
+ * @brief Wrapper function for kernel launcher, GPU implementation
+ *
+ * @param frame: Input image frame
+ * @param kernel: Convolution kernel to apply
+ * @param isX: Direction flag (true for X-axis, false for Y-axis)
+ * @param blockSize: CUDA thread block size
+ * @param convolveKernel: Function pointer to the CUDA kernel implementation
+ * @return Mat: Convolved image
+ */
 Mat SpatialConvolution::gpuConvolve(const Mat& frame, const Kernel& kernel, bool isX, 
     int blockSize, void (*convolveKernel)(float*, float*, float*, int, int, int, bool))
 {
-    if (frame.empty()) return frame;
-
     Mat result;
 
     if (isX) {
-        // Apply convolution directly in the X direction
+        // Call the wrapper function
         result = launchConvolveKernel(frame, kernel, true, blockSize, convolveKernel);
     }
     else {
@@ -87,19 +143,32 @@ Mat SpatialConvolution::gpuConvolve(const Mat& frame, const Kernel& kernel, bool
         // Transpose back to restore original orientation
         cv::transpose(convolvedTransposed, result);
     }
-
-    // Call the wrapper function
     return result;
 }
 
+/**
+ * @brief Selects which convolution method to use: CPU naive, GPU naive, or GPU shared memory
+ *
+ * @param frame: Input image frame
+ * @param kernel: Convolution kernel to apply
+ * @param isX: Direction flag (true for X-axis, false for Y-axis)
+ * @param blockSize: CUDA thread block size
+ * @return Mat: Convolved image
+ */
 Mat SpatialConvolution::convolve(const Mat& frame, const Kernel& kernel, bool isX, int blockSize) {
+    if (frame.empty()) return frame;
+
+    // convert to grayscale and float
+    Mat converted = convert(frame);
+
+    // Select implementation based on the configured strategy
     switch (implementation) {
     case Implementation::CPU_NAIVE:
-        return cpuConvolve(frame, kernel, isX);
+        return cpuConvolve(converted, kernel, isX);
     case Implementation::GPU_NAIVE:
-        return gpuConvolve(frame, kernel, isX, blockSize, getSpatialConvolveNaiveKernel());
+        return gpuConvolve(converted, kernel, isX, blockSize, getSpatialConvolveNaiveKernel());
     case Implementation::GPU_SHARED_MEMORY:
-        return gpuConvolve(frame, kernel, isX, blockSize, getSpatialConvolveSharedMemKernel());
+        return gpuConvolve(converted, kernel, isX, blockSize, getSpatialConvolveSharedMemKernel());
     default:
         throw std::invalid_argument("Unknown implementation");
     }

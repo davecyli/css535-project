@@ -1,3 +1,14 @@
+/* ------------------------------------------------------------------------------------------------
+Alanna Koser, David Li, Jonah Kolar
+CSS 535 A
+March 23, 2025
+Final Project: Optical Flow
+
+Description:
+Generates and manages access to a 1D kernel for convolution with specialized support for 
+generating Gaussian kernels
+------------------------------------------------------------------------------------------------ */
+
 #ifndef KERNEL_H
 #define KERNEL_H
 

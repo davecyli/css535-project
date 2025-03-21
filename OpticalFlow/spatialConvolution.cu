@@ -1,19 +1,40 @@
-/*
+/* ------------------------------------------------------------------------------------------------
+Alanna Koser, David Li, Jonah Kolar
+CSS 535 A
+March 23, 2025
+Final Project: Optical Flow
 
-*/
-
+Description:
+Implements 1D spatial convolution operations across video frames for optical flow processing with
+support for 2 GPU implementation: naive and shared memory. This includes CUDA kernels for efficient 
+parallel processing on GPU hardware.
+------------------------------------------------------------------------------------------------ */
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 #include "spatialConvolution.h"
 
+/**
+ * @brief CUDA kernel for naive parallel convolution
+ *
+ * @param input: Input image data
+ * @param output: Output image data
+ * @param kernel: Convolution kernel coefficients
+ * @param width: Image width
+ * @param height: Image height
+ * @param kernelSize: Size of the convolution kernel
+ * @param isX: Direction flag (true for X-axis, false for Y-axis)
+ */
 __global__ void spatialConvolveNaiveKernel(float* input, float* output, float* kernel, 
     int width, int height, int kernelSize, bool isX) {
 
+    // Calculate global thread index
     int idx = threadIdx.x + blockIdx.x * blockDim.x;
     int halfKernel = kernelSize / 2;
 
+    // Check if index is within bounds
     if (idx >= width * height) return;
 
+    // Convert 1D index to 2D coordinates
     int x, y;
     if (isX) {
         x = idx % width;  // Column index
@@ -24,6 +45,7 @@ __global__ void spatialConvolveNaiveKernel(float* input, float* output, float* k
         x = idx / height;  // Column index
     }
 
+    // Perform convolution
     float sum = 0.0f;
     for (int k = -halfKernel; k <= halfKernel; ++k) {
         int index = isX ? (x + k) : (y + k);
@@ -34,9 +56,21 @@ __global__ void spatialConvolveNaiveKernel(float* input, float* output, float* k
     output[idx] = sum;
 }
 
+/**
+ * @brief CUDA kernel for optimized parallel convolution using shared memory
+ *
+ * @param input: Input image data
+ * @param output: Output image data
+ * @param kernel: Convolution kernel coefficients
+ * @param width: Image width
+ * @param height: Image height
+ * @param kernelSize: Size of the convolution kernel
+ * @param isX: Direction flag (true for X-axis, false for Y-axis)
+ */
 __global__ void spatialConvolveSharedMemKernel(float* input, float* output, float* kernel,
     int width, int height, int kernelSize, bool isX) {
 
+    // Allocate shared memory dynamically
     extern __shared__ float shared_mem[];
 
     // Partition shared memory: first part for kernel, second part for input data
@@ -48,10 +82,10 @@ __global__ void spatialConvolveSharedMemKernel(float* input, float* output, floa
     int bx = blockIdx.x;
     int bdx = blockDim.x;
 
-    // Global thread index
+    // // Calculate global thread index
     int globalIdx = bx * bdx + tx;
 
-    // Determine x, y coordinates based on direction of convolution
+    // Convert 1D index to 2D coordinates
     int x, y;
     if (isX) {
         x = globalIdx % width;
@@ -67,7 +101,7 @@ __global__ void spatialConvolveSharedMemKernel(float* input, float* output, floa
         s_kernel[tx] = kernel[tx];
     }
 
-    __syncthreads();
+    __syncthreads(); // Ensure all threads see the kernel data
 
     // Number of elements to load into shared memory
     int sharedSize = bdx + 2 * halfKernel;
@@ -150,28 +184,47 @@ __global__ void spatialConvolveSharedMemKernel(float* input, float* output, floa
     }
 }
 
+/**
+ * @brief Wrapper function that gets a function pointer to the naive CUDA kernel implementation
+ *   because we cannot use function pointer directly from *.cpp file
+ *
+ * @return Function pointer to temporalConvolveNaiveKernel
+ */
 SpatialConvolveKernelPtr getSpatialConvolveNaiveKernel() {
     return spatialConvolveNaiveKernel;
 }
 
+/**
+ * @brief Wrapper function that gets a function pointer to the shared memory CUDA kernel
+ *   implementation because we cannot use function pointer directly from *.cpp file
+ *
+ * @return Function pointer to temporalConvolveSharedMemKernel
+ */
 SpatialConvolveKernelPtr getSpatialConvolveSharedMemKernel() {
     return spatialConvolveSharedMemKernel;
 }
 
+/**
+ * @brief Helper method to launch the CUDA kernel with appropriate parameters
+ *
+ * @param frame: Input image frame
+ * @param kernel: Convolution kernel to apply
+ * @param isX: Direction flag (true for X-axis, false for Y-axis)
+ * @param blockSize: CUDA thread block size
+ * @param convolveKernel: Function pointer to the CUDA kernel implementation
+ * @return Mat: Convolved image
+ */
 Mat SpatialConvolution::launchConvolveKernel(const Mat& frame, const Kernel& kernel, bool isX,
     int blockSize, void (*convolveKernel)(float*, float*, float*, int, int, int, bool)) {
 
-    if (frame.empty()) return frame;
-
-    Mat converted = convert(frame);
-
-    // Allocate memory on GPU for the input frame
+    // Memory pointers for GPU data
     float* d_input;
     float* d_output;
     float* d_kernel;
 
-    int width = converted.cols;
-    int height = converted.rows;
+    // Calculate sizes
+    int width = frame.cols;
+    int height = frame.rows;
     int frameSize = width * height;
     int kernelSize = kernel.getSize();
 
@@ -184,7 +237,7 @@ Mat SpatialConvolution::launchConvolveKernel(const Mat& frame, const Kernel& ker
     cudaMalloc(&d_kernel, kernelBytes);
 
     // Copy data to GPU
-    cudaMemcpy(d_input, converted.ptr<float>(), frameBytes, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_input, frame.ptr<float>(), frameBytes, cudaMemcpyHostToDevice);
     cudaMemcpy(d_kernel, kernel.getRawData(), kernelBytes, cudaMemcpyHostToDevice);
 
     // Use default block size if not specified
@@ -197,14 +250,14 @@ Mat SpatialConvolution::launchConvolveKernel(const Mat& frame, const Kernel& ker
     // (blockSize + kernelSize - 1) for the data with halo regions
     int sharedMemSize = (kernelSize + blockSize + kernelSize - 1) * sizeof(float);
 
-    // Launch kernel
+    // Calculate grid dimensions and launch kernel
     convolveKernel << <(frameSize + blockSize - 1) / blockSize, blockSize, sharedMemSize >> > (
         d_input, d_output, d_kernel, width, height, kernelSize, isX);
 
-    cudaDeviceSynchronize();
+    cudaDeviceSynchronize(); // Ensure all GPU operations complete
 
     // Copy the result back to host
-    Mat result(height, width, converted.type());
+    Mat result(height, width, frame.type());
     cudaMemcpy(result.ptr<float>(), d_output, frameBytes, cudaMemcpyDeviceToHost);
 
     // Free GPU memory
