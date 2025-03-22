@@ -94,8 +94,6 @@ set_target_properties(driverGPUSharedMem PROPERTIES CUDA_SEPARABLE_COMPILATION O
 target_compile_options(driverGPUSharedMem PRIVATE -Xcompiler "/EHsc /Zi /Ob0")
 target_link_libraries(driverGPUSharedMem ${OpenCV_LIBS} rerun_sdk Eigen3::Eigen)
 
-
-
 ### Test CUDA Project
 add_executable(test_cuda ${CUDA_SOURCES} ${CUDA_HEADERS})
 set_target_properties(test_cuda PROPERTIES CUDA_SEPARABLE_COMPILATION ON EXCLUDE_FROM_ALL ON)  # Exclude from ALL_BUILD

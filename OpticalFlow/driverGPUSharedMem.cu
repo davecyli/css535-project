@@ -178,12 +178,6 @@ int main(int argc, char* argv[]) {
 
             Mat I_x_32F, I_y_32F, I_t_32F;
 
-            normalize(gpuSharedMemI_x, I_x_32F, -1, 1, cv::NORM_MINMAX);
-            I_x_32F.convertTo(I_x_32F, CV_32F);
-            normalize(gpuSharedMemI_y, I_y_32F, -1, 1, cv::NORM_MINMAX);
-            I_x_32F.convertTo(I_x_32F, CV_32F);
-            normalize(gpuSharedMemI_t, I_t_32F, -1, 1, cv::NORM_MINMAX);
-            I_x_32F.convertTo(I_x_32F, CV_32F);
             int index = 0;
             if (!gpuSharedMemI_x.empty() && !gpuSharedMemI_y.empty() && !gpuSharedMemI_t.empty()) {
                 //solver.computeOpticalFlow(I_x_32F, I_y_32F, I_t_32F, flowX, flowY);
@@ -201,7 +195,9 @@ int main(int argc, char* argv[]) {
                 resultsFile << "flowY Maximum value: " << maxVal << " at position " << maxLoc << std::endl;
 
                 Mat bgr;
-                convertFlowToColorMap(flowX, flowY, bgr);
+
+                convertFlowToColorMap(flowX*2, flowY*2, bgr);
+
 
                 flowX.convertTo(flowX_8u, CV_8U); // Convert to 8-bit
                 flowY.convertTo(flowY_8u, CV_8U); // Convert to 8-bit
