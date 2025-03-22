@@ -2,7 +2,7 @@
 
 #define WINDOW_SIZE 5
 #define HALF_WIN (WINDOW_SIZE / 2)
-#define MIN_DETERMINANT 0
+#define MIN_DETERMINANT 1e-10
 
 // Constructor
 LeastSquaresSolverCUDA::LeastSquaresSolverCUDA() : d_Ix(nullptr), d_Iy(nullptr), d_It(nullptr), d_flowX(nullptr), d_flowY(nullptr) {}
