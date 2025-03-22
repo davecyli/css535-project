@@ -176,6 +176,8 @@ Mat SpatialConvolution::convolve(const Mat& frame, const Kernel& kernel, bool is
         return gpuConvolve(converted, kernel, isX, blockSize, getSpatialConvolveNaiveKernel());
     case Implementation::GPU_SHARED_MEMORY:
         return gpuConvolve(converted, kernel, isX, blockSize, getSpatialConvolveSharedMemKernel());
+    case Implementation::GPU_SHARED_MEMORY_TILES:
+        return gpuConvolve(converted, kernel, isX, blockSize, getSpatialConvolveSharedMemTileKernel());
     default:
         throw std::invalid_argument("Unknown implementation");
     }

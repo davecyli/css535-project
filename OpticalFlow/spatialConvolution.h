@@ -53,11 +53,16 @@ extern "C" {
     // CUDA kernel for optimized parallel convolution using shared memory
     __global__ void spatialConvolveSharedMemKernel(float* input, float* output, float* kernel,
         int width, int height, int kernelSize, bool isX);
+
+    // CUDA kernel for optimized parallel convolution using shared memory
+    __global__ void spatialConvolveSharedMemTileKernel(float* input, float* output, float* kernel,
+        int width, int height, int kernelSize, bool isX);
 }
 #endif // __CUDACC__
 
 // Wrapper function visible to all compilers
 SpatialConvolveKernelPtr getSpatialConvolveNaiveKernel();
 SpatialConvolveKernelPtr getSpatialConvolveSharedMemKernel();
+SpatialConvolveKernelPtr getSpatialConvolveSharedMemTileKernel();
 
 #endif // SPATIALCONVOLUTION_H

@@ -76,7 +76,7 @@ __global__ void spatialConvolveNaiveKernel(float* input, float* output, float* k
 }
 
 /**
- * @brief CUDA kernel for optimized parallel convolution using shared memory
+ * @brief CUDA kernel for optimized parallel convolution using shared memory for kernel only
  *
  * @param input: Input image data
  * @param output: Output image data
@@ -87,6 +87,87 @@ __global__ void spatialConvolveNaiveKernel(float* input, float* output, float* k
  * @param isX: Direction flag (true for X-axis, false for Y-axis)
  */
 __global__ void spatialConvolveSharedMemKernel(float* input, float* output, float* kernel,
+    int width, int height, int kernelSize, bool isX)
+{
+    // Allocate shared memory dynamically
+    extern __shared__ float s_kernel[];
+
+    int halfKernel = kernelSize / 2;
+    int tx = threadIdx.x;
+    int bx = blockIdx.x;
+    int bdx = blockDim.x;
+
+    // Calculate global thread index
+    int globalIdx = bx * bdx + tx;
+
+    // Convert 1D index to 2D coordinates
+    int x, y;
+    if (isX) {
+        // Process by rows
+        x = globalIdx % width;
+        y = globalIdx / width;
+    }
+    else {
+        // Process by columns - keep track of original linear index
+        y = globalIdx % height;
+        x = globalIdx / height;
+    }
+
+    // Check boundaries
+    if (x >= width || y >= height) return;
+
+    // Load kernel into shared memory (cooperatively)
+    if (tx < kernelSize) {
+        s_kernel[tx] = kernel[tx];
+    }
+
+    __syncthreads(); // Ensure all threads see the kernel data
+
+    int sharedSize = bdx + kernelSize - 1;
+    float sum = 0.0f;
+    // X-direction convolution
+    if (isX) {
+        // X-direction convolution
+        for (int k = 0; k < kernelSize; k++) {
+            int sampleX = x + k - halfKernel;
+
+            // Border Handling
+            if (sampleX < 0) sampleX = -sampleX;
+            if (sampleX >= width) sampleX = 2 * width - sampleX - 2;
+
+            sum += input[y * width + sampleX] * s_kernel[k];
+        }
+    }
+    else {
+        // Y-direction convolution
+        for (int k = 0; k < kernelSize; k++) {
+            int sampleY = y + k - halfKernel;
+
+            // Border Handling
+            if (sampleY < 0) sampleY = -sampleY;
+            if (sampleY >= height) sampleY = 2 * height - sampleY - 2;
+
+            sum += input[sampleY * width + x] * s_kernel[k];
+        }
+    }
+
+    // Write output
+    output[y * width + x] = sum;
+}
+
+/**
+ * @brief CUDA kernel for optimized parallel convolution using shared memory for both kernel and 
+ *   frame tiles
+ *
+ * @param input: Input image data
+ * @param output: Output image data
+ * @param kernel: Convolution kernel coefficients
+ * @param width: Image width
+ * @param height: Image height
+ * @param kernelSize: Size of the convolution kernel
+ * @param isX: Direction flag (true for X-axis, false for Y-axis)
+ */
+__global__ void spatialConvolveSharedMemTileKernel(float* input, float* output, float* kernel,
     int width, int height, int kernelSize, bool isX) {
 
     // Allocate shared memory dynamically
@@ -101,19 +182,24 @@ __global__ void spatialConvolveSharedMemKernel(float* input, float* output, floa
     int bx = blockIdx.x;
     int bdx = blockDim.x;
 
-    // // Calculate global thread index
+    // Calculate global thread index
     int globalIdx = bx * bdx + tx;
 
     // Convert 1D index to 2D coordinates
     int x, y;
     if (isX) {
+        // Process by rows
         x = globalIdx % width;
         y = globalIdx / width;
     }
     else {
+        // Process by columns - keep track of original linear index
         y = globalIdx % height;
         x = globalIdx / height;
     }
+
+    // Check boundaries
+    if (x >= width || y >= height) return;
 
     // Load kernel into shared memory (cooperatively)
     if (tx < kernelSize) {
@@ -122,9 +208,7 @@ __global__ void spatialConvolveSharedMemKernel(float* input, float* output, floa
 
     __syncthreads(); // Ensure all threads see the kernel data
 
-    // Number of elements to load into shared memory
-    int sharedSize = bdx + 2 * halfKernel;
-
+    int sharedSize = bdx + kernelSize - 1;
     // X-direction convolution
     if (isX) {
         // Calculate block starting x-position (leftmost needed pixel)
@@ -135,7 +219,6 @@ __global__ void spatialConvolveSharedMemKernel(float* input, float* output, floa
         blockStartX = blockStartX % width;
 
         // Each thread loads one or more elements into shared memory
-        int sharedSize = bdx + kernelSize - 1;
         for (int i = tx; i < sharedSize; i += bdx) {
             int loadX = blockStartX + i;
 
@@ -157,8 +240,8 @@ __global__ void spatialConvolveSharedMemKernel(float* input, float* output, floa
         float sum = 0.0f;
         for (int k = 0; k < kernelSize; k++) {
             // Map from global position to position in shared memory tile
-            int s_x = tx + halfKernel;
-            sum += s_data[s_x - halfKernel + k] * s_kernel[k];
+            int s_idx = tx + k;
+            sum += s_data[s_idx] * s_kernel[k];
         }
 
         output[globalIdx] = sum;
@@ -170,14 +253,15 @@ __global__ void spatialConvolveSharedMemKernel(float* input, float* output, floa
 
         // Calculate block starting position (in terms of rows)
         int blockStartY = (bx * bdx) - halfKernel;
+
         // Adjust if negative
         while (blockStartY < 0) blockStartY += height;
         blockStartY = blockStartY % height;
 
         // Load data into shared memory
-        int sharedSize = blockDim.x + kernelSize - 1;
         for (int i = tx; i < sharedSize; i += bdx) {
             int loadY = blockStartY + i;
+            
             // Handle wrap-around
             if (loadY >= height) loadY -= height;
 
@@ -186,7 +270,7 @@ __global__ void spatialConvolveSharedMemKernel(float* input, float* output, floa
                 s_data[i] = input[loadY * width + x];
             }
             else {
-                s_data[i] = 0.0f;
+                s_data[i] = 0.0f; // Zero padding
             }
         }
 
@@ -196,10 +280,9 @@ __global__ void spatialConvolveSharedMemKernel(float* input, float* output, floa
         float sum = 0.0f;
         for (int k = 0; k < kernelSize; k++) {
             // Map from global position to position in shared memory tile
-            int s_y = tx + halfKernel;
-            sum += s_data[s_y - halfKernel + k] * s_kernel[k];
+            int s_idx = tx + k;
+            sum += s_data[s_idx] * s_kernel[k];
         }
-
         output[globalIdx] = sum;
     }
 }
@@ -217,7 +300,19 @@ SpatialConvolveKernelPtr getSpatialConvolveNaiveKernel() {
 
 /**
  * @brief Wrapper function that gets a function pointer to the shared memory CUDA kernel
- *   implementation because we cannot use function pointer directly from *.cpp file
+ *   implementation that loads both the kernel and frame tiles into shared memory, because we 
+ *   cannot use function pointer directly from *.cpp file
+ *
+ * @return Function pointer to temporalConvolveSharedMemKernel
+ */
+SpatialConvolveKernelPtr getSpatialConvolveSharedMemTileKernel() {
+    return spatialConvolveSharedMemTileKernel;
+}
+
+/**
+ * @brief Wrapper function that gets a function pointer to the shared memory CUDA kernel
+ *   implementation that only loads the kernel into shared memory, because we cannot use 
+ *   function pointer directly from *.cpp file
  *
  * @return Function pointer to temporalConvolveSharedMemKernel
  */
@@ -267,9 +362,22 @@ Mat SpatialConvolution::launchConvolveKernel(const Mat& frame, const Kernel& ker
     }
 
     // Calculate shared memory size:
-    // kernelSize for the kernel +
-    // (blockSize + kernelSize - 1) for the data with halo regions
-    int sharedMemSize = (kernelSize + blockSize + kernelSize - 1) * sizeof(float);
+    // kernelSize for the kernel + (blockSize + kernelSize - 1) for the data with halo regions
+    int sharedMemSize;
+    // Select implementation based on the configured strategy
+    switch (implementation) {
+    case Implementation::GPU_NAIVE:
+        sharedMemSize = 0;
+        break;
+    case Implementation::GPU_SHARED_MEMORY:
+        sharedMemSize = (kernelSize + blockSize + kernelSize - 1) * sizeof(float);
+        break;
+    case Implementation::GPU_SHARED_MEMORY_TILES:
+        sharedMemSize = (kernelSize + blockSize + kernelSize - 1) * sizeof(float);
+        break;
+    default:
+        throw std::invalid_argument("Unknown implementation");
+    }
 
     // Calculate grid dimensions and launch kernel
     convolveKernel << <(frameSize + blockSize - 1) / blockSize, blockSize, sharedMemSize >> > (
