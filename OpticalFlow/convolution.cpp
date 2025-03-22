@@ -36,6 +36,5 @@ Mat Convolution::convert(const Mat& frame) const {
         // If already converted, return original frame
         return frame;
     }
-
     return converted;
 }

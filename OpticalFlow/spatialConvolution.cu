@@ -48,9 +48,28 @@ __global__ void spatialConvolveNaiveKernel(float* input, float* output, float* k
     // Perform convolution
     float sum = 0.0f;
     for (int k = -halfKernel; k <= halfKernel; ++k) {
-        int index = isX ? (x + k) : (y + k);
-        if (index >= 0 && (isX ? index < width : index < height)) {
-            sum += input[(isX ? y * width + index : index * width + x)] * kernel[k + halfKernel];
+        int index;
+        if (isX) { // x case
+            index = x + k;
+            // Border handling
+            if (index < 0) {
+                index = -index; // Reflect across border
+            }
+            else if (index >= width) {
+                index = 2 * width - index - 2; // Reflect across opposite border
+            }
+            sum += input[y * width + index] * kernel[k + halfKernel];
+        }
+        else { // y case
+            index = y + k;
+            // Border handling
+            if (index < 0) {
+                index = -index; // Reflect across border
+            }
+            else if (index >= height) {
+                index = 2 * height - index - 2; // Reflect across opposite border
+            }
+            sum += input[index * width + x] * kernel[k + halfKernel];
         }
     }
     output[idx] = sum;
@@ -85,6 +104,9 @@ __global__ void spatialConvolveSharedMemKernel(float* input, float* output, floa
     // // Calculate global thread index
     int globalIdx = bx * bdx + tx;
 
+    // Check if this thread is within bounds
+    if (globalIdx >= width * height) return;
+
     // Convert 1D index to 2D coordinates
     int x, y;
     if (isX) {
@@ -110,17 +132,20 @@ __global__ void spatialConvolveSharedMemKernel(float* input, float* output, floa
     if (isX) {
         // Calculate block starting x-position (leftmost needed pixel)
         // Find which block of columns we're in
-        int blockStartX = (blockIdx.x * blockDim.x) - halfKernel;
-        // Adjust for the specific row
-        while (blockStartX < 0) blockStartX += width;
-        blockStartX = blockStartX % width;
+        int blockStartX = (bx * bdx) % width - halfKernel;
 
         // Each thread loads one or more elements into shared memory
-        int sharedSize = blockDim.x + kernelSize - 1;
-        for (int i = threadIdx.x; i < sharedSize; i += blockDim.x) {
+        int sharedSize = bdx + kernelSize - 1;
+        for (int i = tx; i < sharedSize; i += bdx) {
             int loadX = blockStartX + i;
-            // Handle wrap-around for horizontal convolution
-            if (loadX >= width) loadX -= width;
+            
+            // Border handling
+            if (loadX < 0) {
+                loadX = -loadX; // Reflect across border
+            }
+            else if (loadX >= width) {
+                loadX = 2 * width - loadX - 2; // Reflect across opposite border
+            }
 
             // Only load valid data for this row
             if (y < height) {
@@ -137,29 +162,29 @@ __global__ void spatialConvolveSharedMemKernel(float* input, float* output, floa
         float sum = 0.0f;
         for (int k = 0; k < kernelSize; k++) {
             // Map from global position to position in shared memory tile
-            int s_x = threadIdx.x + halfKernel;
-            sum += s_data[s_x - halfKernel + k] * s_kernel[k];
+            int s_idx = tx;
+            sum += s_data[s_idx + k] * s_kernel[k];
         }
 
         output[globalIdx] = sum;
     }
     // Y-direction convolution
     else {
-        // Each thread block handles a set of columns
-        // Each thread processes a different row in the same column
-
-        // Calculate block starting position (in terms of rows)
-        int blockStartY = (blockIdx.x * blockDim.x) - halfKernel;
-        // Adjust if negative
-        while (blockStartY < 0) blockStartY += height;
-        blockStartY = blockStartY % height;
+        // Calculate the topmost y-position needed for this block
+        int blockStartY = (bx * bdx) % height - halfKernel;
 
         // Load data into shared memory
-        int sharedSize = blockDim.x + kernelSize - 1;
-        for (int i = threadIdx.x; i < sharedSize; i += blockDim.x) {
+        int sharedSize = bdx + kernelSize - 1;
+        for (int i = tx; i < sharedSize; i += bdx) {
             int loadY = blockStartY + i;
-            // Handle wrap-around
-            if (loadY >= height) loadY -= height;
+            
+            // Border handling
+            if (loadY < 0) {
+                loadY = -loadY; // Reflect across border
+            }
+            else if (loadY >= height) {
+                loadY = 2 * height - loadY - 2; // Reflect across opposite border
+            }
 
             // Only load valid data for this column
             if (x < width) {
@@ -176,8 +201,8 @@ __global__ void spatialConvolveSharedMemKernel(float* input, float* output, floa
         float sum = 0.0f;
         for (int k = 0; k < kernelSize; k++) {
             // Map from global position to position in shared memory tile
-            int s_y = threadIdx.x + halfKernel;
-            sum += s_data[s_y - halfKernel + k] * s_kernel[k];
+            int s_idx = tx;
+            sum += s_data[s_idx + k] * s_kernel[k];
         }
 
         output[globalIdx] = sum;

@@ -97,9 +97,16 @@ Mat SpatialConvolution::cpuConvolve(const Mat& frame, const Kernel& kernel, cons
             // Apply convolution kernel
             for (int k = -halfKernel; k <= halfKernel; ++k) {
                 int idx = j + k; // Compute the shifted index
-                if (idx >= 0 && idx < cols) { // Make sure index is within bounds
-                    sum += inputFrame.at<float>(i, idx) * kernel.getElement(k + halfKernel);
+
+                // Border handling
+                if (idx < 0) {
+                    idx = -idx; // Reflect across border
                 }
+                else if (idx >= cols) {
+                    idx = 2 * cols - idx - 2; // Reflect across opposite border
+                }
+
+                sum += inputFrame.at<float>(i, idx) * kernel.getElement(k + halfKernel);
             }
             convolved.at<float>(i, j) = sum; // Store result
         }
