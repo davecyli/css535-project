@@ -138,9 +138,3 @@ foreach(DLL ${OPENCV_DLLS})
         COMMAND ${CMAKE_COMMAND} -E copy_if_different "${DLL}" $<TARGET_FILE_DIR:driverGPUSharedMem>
     )
 endforeach()
-
-foreach(DLL ${OPENCV_DLLS})
-    add_custom_command(TARGET example_minimal POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${DLL}" $<TARGET_FILE_DIR:example_minimal>
-    )
-endforeach()
