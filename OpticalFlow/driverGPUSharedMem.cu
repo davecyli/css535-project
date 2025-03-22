@@ -67,8 +67,7 @@ int main(int argc, char* argv[]) {
     Mat frame;
     Mat derivativeDisplay, smoothedDisplay, frameRGBA;
 
-    //int blockSizes[] = { 1 << 10, 1 << 9, 1 << 8, 1 << 7, 1 << 6, 1 << 5 };
-    int blockSizes[] = { 1 << 10 };
+    int blockSizes[] = { 1 << 10, 1 << 9, 1 << 8, 1 << 7, 1 << 6, 1 << 5 };
     int numBlockSizes = sizeof(blockSizes) / sizeof(blockSizes[0]);
 
 	ofstream resultsFile("results.txt");
