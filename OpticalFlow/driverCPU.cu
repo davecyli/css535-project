@@ -5,12 +5,13 @@ Changes to make prior to GPU implementation
 * Use cv::cuda::GpuMat instead of cv::Mat
 
 */
-#include "profiler.h"
+#include "collection_adapters.hpp"
 #include "least_squares_solver.h"
+#include "least_squares_solver_cuda.h"
+#include "profiler.h"
 #include "spatialConvolution.h"
 #include "temporalConvolution.h"
-#include "collection_adapters.hpp"
-#include "least_squares_solver_cuda.h"
+#include "utilities.h"
 
 #include <Eigen/Dense>
 
@@ -166,7 +167,7 @@ int main(int argc, char* argv[]) {
         if (!cpuI_x.empty() && !cpuI_y.empty() && !cpuI_t.empty()) {
             //solver.computeOpticalFlow(I_x_32F, I_y_32F, I_t_32F, flowX, flowY);
 			solverCUDA.computeOpticalFlow(cpuI_x, cpuI_y, cpuI_t, flowX, flowY);
-            // Declare what you need
+
             imwrite("flowX_" + std::to_string(index) + ".jpg", flowX);
             imwrite("flowY_" + std::to_string(index) + ".jpg", flowY);
 
@@ -178,11 +179,15 @@ int main(int argc, char* argv[]) {
             resultsFile << "flowY Minimum value: " << minVal << " at position " << minLoc << std::endl;
             resultsFile << "flowY Maximum value: " << maxVal << " at position " << maxLoc << std::endl;
 
+            Mat bgr;
+            convertFlowToColorMap(flowX, flowY, bgr);
+
             flowX.convertTo(flowX_8u, CV_8U); // Convert to 8-bit
             flowY.convertTo(flowY_8u, CV_8U); // Convert to 8-bit
 
             rec.log("&.flowX", rerun::Image::from_greyscale8(flowX_8u, { uint32_t(flowX_8u.cols), uint32_t(flowX_8u.rows) }));
             rec.log("&.flowY", rerun::Image::from_greyscale8(flowY_8u, { uint32_t(flowY_8u.cols), uint32_t(flowY_8u.rows) }));
+            rec.log("9.OpticalFlow", rerun::Image::from_rgb24(bgr, { uint32_t(bgr.cols), uint32_t(bgr.rows) }));
             index++;
         }
     }

@@ -26,13 +26,14 @@ set(MAIN_SOURCES
     OpticalFlow/circularBuffer.cpp
     OpticalFlow/convolution.cpp
     OpticalFlow/kernel.cpp
-    OpticalFlow/spatialConvolution.cpp
-    OpticalFlow/temporalConvolution.cpp
-    OpticalFlow/spatialConvolution.cu
-    OpticalFlow/temporalConvolution.cu
-    OpticalFlow/profiler.cu
 	OpticalFlow/least_squares_solver.cpp
 	OpticalFlow/least_squares_solver_cuda.cu
+    OpticalFlow/profiler.cu
+    OpticalFlow/spatialConvolution.cpp
+    OpticalFlow/spatialConvolution.cu
+    OpticalFlow/temporalConvolution.cpp
+    OpticalFlow/temporalConvolution.cu
+	OpticalFlow/utilities.cpp
 )
 
 set(MAIN_HEADERS
@@ -40,11 +41,12 @@ set(MAIN_HEADERS
     OpticalFlow/collection_adapters.hpp
     OpticalFlow/convolution.h
     OpticalFlow/kernel.h
-    OpticalFlow/spatialConvolution.h
-    OpticalFlow/temporalConvolution.h
-    OpticalFlow/profiler.h
 	OpticalFlow/least_squares_solver.h
 	OpticalFlow/least_squares_solver_cuda.h
+    OpticalFlow/profiler.h
+    OpticalFlow/spatialConvolution.h
+    OpticalFlow/temporalConvolution.h
+	OpticalFlow/utilities.h
 )
 
 set(CUDA_SOURCES
