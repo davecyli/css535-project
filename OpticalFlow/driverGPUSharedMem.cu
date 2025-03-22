@@ -196,7 +196,9 @@ int main(int argc, char* argv[]) {
                 resultsFile << "flowY Maximum value: " << maxVal << " at position " << maxLoc << std::endl;
 
                 Mat bgr;
-                convertFlowToColorMap(flowX*5, flowY*5, bgr);
+
+                convertFlowToColorMap(flowX*2, flowY*2, bgr);
+
 
                 flowX.convertTo(flowX_8u, CV_8U); // Convert to 8-bit
                 flowY.convertTo(flowY_8u, CV_8U); // Convert to 8-bit
