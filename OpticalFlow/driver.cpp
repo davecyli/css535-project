@@ -73,7 +73,8 @@ void residuals(const Mat& customImg, const Mat& opencvImg, const string& title) 
     double residualScale = max(abs(minVal), abs(maxVal)) > 0 ?
         127.0 / max(abs(minVal), abs(maxVal)) : 1.0;
 
-    residual.convertTo(residualDisplay, CV_8U, residualScale, 128); // Scale and center at 128 (gray)
+    // Scale and center at 128 (gray)
+    residual.convertTo(residualDisplay, CV_8U, residualScale, 128); 
 
     // Display images
     imshow(title + " - Custom vs OpenCV", sideBySide);
@@ -166,7 +167,8 @@ int main(int argc, char* argv[]) {
             waitKey(1);
 
             // OpenCV equivalent for spatial smoothing
-            GaussianBlur(cpuSmoothedT, opencvCpuNaiveSmoothed, Size(kernelSizeSmoothing, kernelSizeSmoothing), sigma, sigma);
+            GaussianBlur(cpuSmoothedT, opencvCpuNaiveSmoothed, 
+                Size(kernelSizeSmoothing, kernelSizeSmoothing), sigma, sigma);
 
             // Display comparisons
             residuals(cpuSmoothedTXY, opencvCpuNaiveSmoothed, "Gaussian Smoothing: CPU Naive");
@@ -230,7 +232,8 @@ int main(int argc, char* argv[]) {
     TemporalConvolution gpuNaiveDerivativeT(Implementation::GPU_NAIVE, kernelSizeDerivative);
 
     // Variables to store intermediate and final results
-    Mat gpuNaiveSmoothedT, gpuNaiveSmoothedTX, gpuNaiveSmoothedTXY, gpuNaiveI_t, gpuNaiveI_x, gpuNaiveI_y;
+    Mat gpuNaiveSmoothedT, gpuNaiveSmoothedTX, gpuNaiveSmoothedTXY, 
+        gpuNaiveI_t, gpuNaiveI_x, gpuNaiveI_y;
 
     // Variables for OpenCV results
     Mat opencvGpuNaiveSmoothed, opencvGpuNaiveI_x, opencvGpuNaiveI_y, opencvGpuNaiveI_t;
@@ -253,7 +256,8 @@ int main(int argc, char* argv[]) {
             }
 
             // Apply spatial smoothing in X dimension
-            gpuNaiveSmoothedTX = gpuNaiveXY.convolveX(gpuNaiveSmoothedT, *gaussianKernel, blockSize);
+            gpuNaiveSmoothedTX = gpuNaiveXY.convolveX(gpuNaiveSmoothedT, *gaussianKernel, 
+                blockSize);
             if (!gpuNaiveSmoothedTX.empty()) {
                 string windowName = "Smoothed TX, GPU Naive, Block Size: " + to_string(blockSize);
                 imshow(windowName, gpuNaiveSmoothedTX);
@@ -261,21 +265,25 @@ int main(int argc, char* argv[]) {
             }
 
             // Apply spatial smoothing in Y dimension
-            gpuNaiveSmoothedTXY = gpuNaiveXY.convolveY(gpuNaiveSmoothedTX, *gaussianKernel, blockSize);
+            gpuNaiveSmoothedTXY = gpuNaiveXY.convolveY(gpuNaiveSmoothedTX, *gaussianKernel, 
+                blockSize);
             if (!gpuNaiveSmoothedTXY.empty()) {
                 string windowName = "Smoothed TXY, GPU Naive, Block Size: " + to_string(blockSize);
                 imshow(windowName, gpuNaiveSmoothedTXY);
                 waitKey(1);
 
                 // OpenCV equivalent for spatial smoothing
-                GaussianBlur(gpuNaiveSmoothedT, opencvGpuNaiveSmoothed, Size(kernelSizeSmoothing, kernelSizeSmoothing), sigma, sigma);
+                GaussianBlur(gpuNaiveSmoothedT, opencvGpuNaiveSmoothed, 
+                    Size(kernelSizeSmoothing, kernelSizeSmoothing), sigma, sigma);
 
                 // Display comparisons
-                residuals(gpuNaiveSmoothedTXY, opencvGpuNaiveSmoothed, "Gaussian Smoothing: GPU Naive");
+                residuals(gpuNaiveSmoothedTXY, opencvGpuNaiveSmoothed, 
+                    "Gaussian Smoothing: GPU Naive");
             }
 
             // Calculate temporal derivative (I_t)
-            gpuNaiveI_t = gpuNaiveDerivativeT.convolve(gpuNaiveSmoothedTXY, derivativeKernel, blockSize);
+            gpuNaiveI_t = gpuNaiveDerivativeT.convolve(gpuNaiveSmoothedTXY, derivativeKernel, 
+                blockSize);
             if (!gpuNaiveI_t.empty()) {
                 // Normalize and convert for display
                 normalize(gpuNaiveI_t, derivativeDisplay, 0, 255, NORM_MINMAX);
@@ -296,7 +304,8 @@ int main(int argc, char* argv[]) {
                 waitKey(1);
 
                 // OpenCV equivalent for X derivative
-                Sobel(opencvGpuNaiveSmoothed, opencvGpuNaiveI_x, CV_32F, 1, 0, kernelSizeDerivative);
+                Sobel(opencvGpuNaiveSmoothed, opencvGpuNaiveI_x, CV_32F, 1, 0, 
+                    kernelSizeDerivative);
 
                 // Display comparisons
                 residuals(gpuNaiveI_x, opencvGpuNaiveI_x, "X Derivative: GPU Naive");
@@ -313,7 +322,8 @@ int main(int argc, char* argv[]) {
                 waitKey(1);
 
                 // OpenCV equivalent for Y derivative
-                Sobel(opencvGpuNaiveSmoothed, opencvGpuNaiveI_y, CV_32F, 0, 1, kernelSizeDerivative);
+                Sobel(opencvGpuNaiveSmoothed, opencvGpuNaiveI_y, CV_32F, 0, 1, 
+                    kernelSizeDerivative);
 
                 // Display comparisons
                 residuals(gpuNaiveI_y, opencvGpuNaiveI_y, "Y Derivative: GPU_Naive");
@@ -338,6 +348,10 @@ int main(int argc, char* argv[]) {
     // Variables to store intermediate and final results
     Mat gpuSharedMemSmoothedT, gpuSharedMemSmoothedTX, gpuSharedMemSmoothedTXY, 
         gpuSharedMemI_t, gpuSharedMemI_x, gpuSharedMemI_y;
+
+    // Variables for OpenCV results
+    Mat opencvGpuSharedMemSmoothed, opencvGpuSharedMemI_x, opencvGpuSharedMemI_y, 
+        opencvGpuSharedMemI_t;
 
     // Test each block size
     for (int i = 0; i < numBlockSizes; i++) {
@@ -386,6 +400,15 @@ int main(int argc, char* argv[]) {
                     + to_string(blockSize);
                 imshow(windowName, gpuSharedMemSmoothedTXY);
                 waitKey(1);
+
+                // OpenCV equivalent for spatial smoothing
+                GaussianBlur(gpuSharedMemSmoothedT, opencvGpuSharedMemSmoothed, 
+                    Size(kernelSizeSmoothing, kernelSizeSmoothing), sigma, sigma);
+
+                // Display comparisons
+                residuals(gpuSharedMemSmoothedTXY, opencvGpuSharedMemSmoothed, 
+                    "Gaussian Smoothing: GPU Shared Memory");
+
             }
             
             // Calculate temporal derivative (I_t)
@@ -412,6 +435,14 @@ int main(int argc, char* argv[]) {
                     + to_string(blockSize);
                 imshow(windowName, derivativeDisplay);
                 waitKey(1);
+
+                // OpenCV equivalent for X derivative
+                Sobel(opencvGpuSharedMemSmoothed, opencvGpuSharedMemI_x, CV_32F, 1, 0,
+                    kernelSizeDerivative);
+
+                // Display comparisons
+                residuals(gpuSharedMemI_x, opencvGpuSharedMemI_x, 
+                    "X Derivative: GPU Shared Memory");
             }
 
             // Calculate spatial derivative in Y dimension (I_y)
@@ -425,6 +456,14 @@ int main(int argc, char* argv[]) {
                     + to_string(blockSize);
                 imshow(windowName, derivativeDisplay);
                 waitKey(1);
+
+                // OpenCV equivalent for Y derivative
+                Sobel(opencvGpuSharedMemSmoothed, opencvGpuSharedMemI_y, CV_32F, 0, 1,
+                    kernelSizeDerivative);
+
+                // Display comparisons
+                residuals(gpuSharedMemI_y, opencvGpuSharedMemI_y, 
+                    "Y Derivative: GPU Shared Memory");
             }
             
         }
