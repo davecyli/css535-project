@@ -547,7 +547,6 @@ int main(int argc, char* argv[]) {
                 // Display comparisons
                 residuals(gpuSharedMemSmoothedTXY, opencvGpuSharedMemSmoothed,
                     "Gaussian Smoothing: GPU Shared Memory, Kernel Only, Block Size: " + blockSize);
-
             }
 
             // Calculate temporal derivative (I_t)

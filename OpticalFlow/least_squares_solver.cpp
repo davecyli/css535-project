@@ -10,8 +10,8 @@
 
 void LeastSquaresSolver::computeOpticalFlow(const Mat& Ix, const Mat& Iy, const Mat& It, Mat& flowX, Mat& flowY) {
     // Define constants
-    const float NOISE_THRESHOLD = 0;  // Threshold for reliable eigenvalues
-    const float MIN_DETERMINANT = 0;  // Threshold for matrix invertibility
+    const float NOISE_THRESHOLD = 1e-10;  // Threshold for reliable eigenvalues
+    const float MIN_DETERMINANT = 1e-10;  // Threshold for matrix invertibility
 	
 	int windowSize = 5; // Grid size of pixels to consider (n x n grid to calculate the pixel at the center)
 	vector<float> weights = {0.0625, 0.25, 0.375, 0.25, 0.0625}; // Pixel weights
