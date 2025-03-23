@@ -335,23 +335,161 @@ int main(int argc, char* argv[]) {
     }
 
     //---------------------------------------------------------------------------------------------
-    // GPU Shared Memory Implementation with different block sizes
+    // GPU Shared Memory Implementation with Tiling frames as well as the kernel into shared memory 
+    // with different block sizes
     //---------------------------------------------------------------------------------------------
 
     // Initialize GPU shared memory convolution objects
-    SpatialConvolution gpuSharedMemXY(Implementation::GPU_SHARED_MEMORY);
+    SpatialConvolution gpuSharedMemTilesXY(Implementation::GPU_SHARED_MEMORY_TILES);
     TemporalConvolution gpuSharedMemSmoothT(Implementation::GPU_SHARED_MEMORY, 
         kernelSizeSmoothing);
     TemporalConvolution gpuSharedMemDerivativeT(Implementation::GPU_SHARED_MEMORY, 
         kernelSizeDerivative);
 
     // Variables to store intermediate and final results
-    Mat gpuSharedMemSmoothedT, gpuSharedMemSmoothedTX, gpuSharedMemSmoothedTXY, 
+    Mat gpuSharedMemTilesSmoothedT, gpuSharedMemTilesSmoothedTX, gpuSharedMemTilesSmoothedTXY, 
+        gpuSharedMemTilesI_t, gpuSharedMemTilesI_x, gpuSharedMemTilesI_y;
+
+    // Variables for OpenCV results
+    Mat opencvGpuSharedMemTilesSmoothed, opencvGpuSharedMemTilesI_x, opencvGpuSharedMemTilesI_y, 
+        opencvGpuSharedMemTilesI_t;
+
+    // Test each block size
+    for (int i = 0; i < numBlockSizes; i++) {
+        while (capture.read(frame)) {
+            int blockSize = blockSizes[i];
+
+            // Maximum block size for temporal convolution (due to shared memory limitations)
+            int maxBlockSizeT = 1 << 8;
+
+            // Apply temporal smoothing (T dimension) with appropriate block size
+            if (blockSize > maxBlockSizeT) {
+                gpuSharedMemTilesSmoothedT = gpuSharedMemSmoothT.convolve(
+                    frame, *gaussianKernel, maxBlockSizeT);
+                if (!gpuSharedMemTilesSmoothedT.empty()) {
+                    string windowName = "Smoothed T, GPU Shared Memory, Tiled Frames, Block Size: "
+                        + to_string(maxBlockSizeT);
+                    imshow(windowName, gpuSharedMemTilesSmoothedT);
+                    waitKey(1);
+                }
+            } else {
+                gpuSharedMemTilesSmoothedT = gpuSharedMemSmoothT.convolve(
+                    frame, *gaussianKernel, blockSize);
+                if (!gpuSharedMemTilesSmoothedT.empty()) {
+                    string windowName = "Smoothed T, GPU Shared Memory, Tiled Frames, Block Size: "
+                        + to_string(blockSize);
+                    imshow(windowName, gpuSharedMemTilesSmoothedT);
+                    waitKey(1);
+                }
+            }
+
+            // Apply spatial smoothing in X dimension
+            gpuSharedMemTilesSmoothedTX = gpuSharedMemTilesXY.convolveX(
+                gpuSharedMemTilesSmoothedT, *gaussianKernel, blockSize);
+            if (!gpuSharedMemTilesSmoothedTX.empty()) {
+                string windowName = "Smoothed TX, GPU Shared Memory, Tiled Frames, Block Size: "
+                    + to_string(blockSize);
+                imshow(windowName, gpuSharedMemTilesSmoothedTX);
+                waitKey(1);
+            }
+            
+            // Apply spatial smoothing in Y dimension
+            gpuSharedMemTilesSmoothedTXY = gpuSharedMemTilesXY.convolveY(
+                gpuSharedMemTilesSmoothedTX, *gaussianKernel, blockSize);
+            if (!gpuSharedMemTilesSmoothedTXY.empty()) {
+                string windowName = "Smoothed TXY, GPU Shared Memory, Tiled Frames, Block Size: "
+                    + to_string(blockSize);
+                imshow(windowName, gpuSharedMemTilesSmoothedTXY);
+                waitKey(1);
+
+                // OpenCV equivalent for spatial smoothing
+                GaussianBlur(gpuSharedMemTilesSmoothedT, opencvGpuSharedMemTilesSmoothed, 
+                    Size(kernelSizeSmoothing, kernelSizeSmoothing), sigma, sigma);
+
+                // Display comparisons
+                residuals(gpuSharedMemTilesSmoothedTXY, opencvGpuSharedMemTilesSmoothed, 
+                    "Gaussian Smoothing: GPU Shared Memory, Tiled Frames, Block Size: " + to_string(blockSize));
+
+            }
+            
+            // Calculate temporal derivative (I_t)
+            gpuSharedMemTilesI_t = gpuSharedMemDerivativeT.convolve(
+                gpuSharedMemTilesSmoothedTXY, derivativeKernel, blockSize);
+            if (!gpuSharedMemTilesI_t.empty()) {
+                // Normalize and convert for display
+                normalize(gpuSharedMemTilesI_t, derivativeDisplay, 0, 255, NORM_MINMAX);
+                derivativeDisplay.convertTo(derivativeDisplay, CV_8U); // Convert to 8-bit
+                string windowName = 
+                    "gpuSharedMemTilesI_t, GPU Shared Memory, Tiled Frames, Block Size: "
+                    + to_string(blockSize);
+                imshow(windowName, derivativeDisplay);
+                waitKey(1);
+            }
+            
+            // Calculate spatial derivative in X dimension (I_x)
+            gpuSharedMemTilesI_x = gpuSharedMemTilesXY.convolveX(
+                gpuSharedMemTilesSmoothedTXY, derivativeKernel, blockSize);
+            if (!gpuSharedMemTilesI_x.empty()) {
+                // Normalize and convert for display
+                normalize(gpuSharedMemTilesI_x, derivativeDisplay, 0, 255, NORM_MINMAX);
+                derivativeDisplay.convertTo(derivativeDisplay, CV_8U); // Convert to 8-bit
+                string windowName = 
+                    "gpuSharedMemTilesI_x, GPU Shared Memory, Tiled Frames, Block Size: "
+                    + to_string(blockSize);
+                imshow(windowName, derivativeDisplay);
+                waitKey(1);
+
+                // OpenCV equivalent for X derivative
+                Sobel(opencvGpuSharedMemTilesSmoothed, opencvGpuSharedMemTilesI_x, CV_32F, 1, 0,
+                    kernelSizeDerivative);
+
+                // Display comparisons
+                residuals(gpuSharedMemTilesI_x, opencvGpuSharedMemTilesI_x, 
+                    "X Derivative: GPU Shared Memory, Tiled Frames, Block Size: " + to_string(blockSize));
+            }
+
+            // Calculate spatial derivative in Y dimension (I_y)
+            gpuSharedMemTilesI_y = gpuSharedMemTilesXY.convolveY(
+                gpuSharedMemTilesSmoothedTXY, derivativeKernel, blockSize);
+            if (!gpuSharedMemTilesI_y.empty()) {
+                // Normalize and convert for display
+                normalize(gpuSharedMemTilesI_y, derivativeDisplay, 0, 255, NORM_MINMAX);
+                derivativeDisplay.convertTo(derivativeDisplay, CV_8U); // Convert to 8-bit
+                string windowName = "gpuSharedMemTilesI_y, GPU Shared Memory, Tiled Frames, Block Size: "
+                    + to_string(blockSize);
+                imshow(windowName, derivativeDisplay);
+                waitKey(1);
+
+                // OpenCV equivalent for Y derivative
+                Sobel(opencvGpuSharedMemTilesSmoothed, opencvGpuSharedMemTilesI_y, CV_32F, 0, 1,
+                    kernelSizeDerivative);
+
+                // Display comparisons
+                residuals(gpuSharedMemTilesI_y, opencvGpuSharedMemTilesI_y, 
+                    "Y Derivative: GPU Shared Memory, Tiled Frames, Block Size: " + to_string(blockSize));
+            }
+            
+        }
+    // Reset the video for the next block size
+    capture.release();
+    capture.open(video);
+    }
+
+//---------------------------------------------------------------------------------------------
+// GPU Shared Memory Implementation that only puts the kernel into shared memory, not any tiled
+// frames. Uses different block sizes
+//---------------------------------------------------------------------------------------------
+
+// Initialize GPU shared memory convolution object
+    SpatialConvolution gpuSharedMemXY(Implementation::GPU_SHARED_MEMORY);
+
+    // Variables to store intermediate and final results
+    Mat gpuSharedMemSmoothedT, gpuSharedMemSmoothedTX, gpuSharedMemSmoothedTXY,
         gpuSharedMemI_t, gpuSharedMemI_x, gpuSharedMemI_y;
 
     // Variables for OpenCV results
-    Mat opencvGpuSharedMemSmoothed, opencvGpuSharedMemI_x, opencvGpuSharedMemI_y, 
-        opencvGpuSharedMemI_t;
+    Mat opencvGpuSharedMemSmoothed, opencvgpuSharedMemI_x, opencvgpuSharedMemI_y,
+        opencvgpuSharedMemI_t;
 
     // Test each block size
     for (int i = 0; i < numBlockSizes; i++) {
@@ -366,16 +504,17 @@ int main(int argc, char* argv[]) {
                 gpuSharedMemSmoothedT = gpuSharedMemSmoothT.convolve(
                     frame, *gaussianKernel, maxBlockSizeT);
                 if (!gpuSharedMemSmoothedT.empty()) {
-                    string windowName = "Smoothed T, GPU Shared Memory, Block Size: "
+                    string windowName = "Smoothed T, GPU Shared Memory, Kernel Only, Block Size: "
                         + to_string(maxBlockSizeT);
                     imshow(windowName, gpuSharedMemSmoothedT);
                     waitKey(1);
                 }
-            } else {
+            }
+            else {
                 gpuSharedMemSmoothedT = gpuSharedMemSmoothT.convolve(
                     frame, *gaussianKernel, blockSize);
                 if (!gpuSharedMemSmoothedT.empty()) {
-                    string windowName = "Smoothed T, GPU Shared Memory, Block Size: "
+                    string windowName = "Smoothed T, GPU Shared Memory, Kernel Only, Block Size: "
                         + to_string(blockSize);
                     imshow(windowName, gpuSharedMemSmoothedT);
                     waitKey(1);
@@ -386,31 +525,30 @@ int main(int argc, char* argv[]) {
             gpuSharedMemSmoothedTX = gpuSharedMemXY.convolveX(
                 gpuSharedMemSmoothedT, *gaussianKernel, blockSize);
             if (!gpuSharedMemSmoothedTX.empty()) {
-                string windowName = "Smoothed TX, GPU Shared Memory, Block Size: "
+                string windowName = "Smoothed TX, GPU Shared Memory, Kernel Only, Block Size: "
                     + to_string(blockSize);
                 imshow(windowName, gpuSharedMemSmoothedTX);
                 waitKey(1);
             }
-            
+
             // Apply spatial smoothing in Y dimension
             gpuSharedMemSmoothedTXY = gpuSharedMemXY.convolveY(
                 gpuSharedMemSmoothedTX, *gaussianKernel, blockSize);
             if (!gpuSharedMemSmoothedTXY.empty()) {
-                string windowName = "Smoothed TXY, GPU Shared Memory, Block Size: "
+                string windowName = "Smoothed TXY, GPU Shared Memory, Kernel Only, Block Size: "
                     + to_string(blockSize);
                 imshow(windowName, gpuSharedMemSmoothedTXY);
                 waitKey(1);
 
                 // OpenCV equivalent for spatial smoothing
-                GaussianBlur(gpuSharedMemSmoothedT, opencvGpuSharedMemSmoothed, 
+                GaussianBlur(gpuSharedMemSmoothedT, opencvGpuSharedMemSmoothed,
                     Size(kernelSizeSmoothing, kernelSizeSmoothing), sigma, sigma);
 
                 // Display comparisons
-                residuals(gpuSharedMemSmoothedTXY, opencvGpuSharedMemSmoothed, 
-                    "Gaussian Smoothing: GPU Shared Memory");
-
+                residuals(gpuSharedMemSmoothedTXY, opencvGpuSharedMemSmoothed,
+                    "Gaussian Smoothing: GPU Shared Memory, Kernel Only, Block Size: " + blockSize);
             }
-            
+
             // Calculate temporal derivative (I_t)
             gpuSharedMemI_t = gpuSharedMemDerivativeT.convolve(
                 gpuSharedMemSmoothedTXY, derivativeKernel, blockSize);
@@ -418,12 +556,13 @@ int main(int argc, char* argv[]) {
                 // Normalize and convert for display
                 normalize(gpuSharedMemI_t, derivativeDisplay, 0, 255, NORM_MINMAX);
                 derivativeDisplay.convertTo(derivativeDisplay, CV_8U); // Convert to 8-bit
-                string windowName = "gpuSharedMemI_t, GPU Shared Memory, Block Size: "
+                string windowName =
+                    "gpuSharedMemI_t, GPU Shared Memory, Kernel Only, Block Size: "
                     + to_string(blockSize);
                 imshow(windowName, derivativeDisplay);
                 waitKey(1);
             }
-            
+
             // Calculate spatial derivative in X dimension (I_x)
             gpuSharedMemI_x = gpuSharedMemXY.convolveX(
                 gpuSharedMemSmoothedTXY, derivativeKernel, blockSize);
@@ -431,18 +570,19 @@ int main(int argc, char* argv[]) {
                 // Normalize and convert for display
                 normalize(gpuSharedMemI_x, derivativeDisplay, 0, 255, NORM_MINMAX);
                 derivativeDisplay.convertTo(derivativeDisplay, CV_8U); // Convert to 8-bit
-                string windowName = "gpuSharedMemI_x, GPU Shared Memory, Block Size: "
+                string windowName =
+                    "gpuSharedMemI_x, GPU Shared Memory, Kernel Only, Block Size: "
                     + to_string(blockSize);
                 imshow(windowName, derivativeDisplay);
                 waitKey(1);
 
                 // OpenCV equivalent for X derivative
-                Sobel(opencvGpuSharedMemSmoothed, opencvGpuSharedMemI_x, CV_32F, 1, 0,
+                Sobel(opencvGpuSharedMemSmoothed, opencvgpuSharedMemI_x, CV_32F, 1, 0,
                     kernelSizeDerivative);
 
                 // Display comparisons
-                residuals(gpuSharedMemI_x, opencvGpuSharedMemI_x, 
-                    "X Derivative: GPU Shared Memory");
+                residuals(gpuSharedMemI_x, opencvgpuSharedMemI_x,
+                    "X Derivative: GPU Shared Memory, Kernel Only, Block Size: " + to_string(blockSize));
             }
 
             // Calculate spatial derivative in Y dimension (I_y)
@@ -452,25 +592,26 @@ int main(int argc, char* argv[]) {
                 // Normalize and convert for display
                 normalize(gpuSharedMemI_y, derivativeDisplay, 0, 255, NORM_MINMAX);
                 derivativeDisplay.convertTo(derivativeDisplay, CV_8U); // Convert to 8-bit
-                string windowName = "gpuSharedMemI_y, GPU Shared Memory, Block Size: "
+                string windowName = "gpuSharedMemI_y, GPU Shared Memory, Kernel Only, Block Size: "
                     + to_string(blockSize);
                 imshow(windowName, derivativeDisplay);
                 waitKey(1);
 
                 // OpenCV equivalent for Y derivative
-                Sobel(opencvGpuSharedMemSmoothed, opencvGpuSharedMemI_y, CV_32F, 0, 1,
+                Sobel(opencvGpuSharedMemSmoothed, opencvgpuSharedMemI_y, CV_32F, 0, 1,
                     kernelSizeDerivative);
 
                 // Display comparisons
-                residuals(gpuSharedMemI_y, opencvGpuSharedMemI_y, 
-                    "Y Derivative: GPU Shared Memory");
+                residuals(gpuSharedMemI_y, opencvgpuSharedMemI_y,
+                    "Y Derivative: GPU Shared Memory, Kernel Only, Block Size: " + to_string(blockSize));
             }
-            
+
         }
-    // Reset the video for the next block size
-    capture.release();
-    capture.open(video);
+        // Reset the video for the next block size
+        capture.release();
+        capture.open(video);
     }
+
     // Cleanup
     delete gaussianKernel;
     gaussianKernel = nullptr;

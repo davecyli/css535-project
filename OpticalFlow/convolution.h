@@ -28,7 +28,8 @@ using namespace cv;
 enum class Implementation {
     CPU_NAIVE,
     GPU_NAIVE,
-    GPU_SHARED_MEMORY
+    GPU_SHARED_MEMORY,
+    GPU_SHARED_MEMORY_TILES
 };
 
 class Convolution {
