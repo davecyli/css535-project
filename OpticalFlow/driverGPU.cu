@@ -26,11 +26,8 @@ using namespace cv;
 
 
 int main(int argc, char* argv[]) {
-    CudaProfiler profiler = CudaProfiler();
-    LeastSquaresSolver solver;
-	LeastSquaresSolverCUDA solverCUDA;
-
     string videoFilePath = "";
+    bool streamToRerun = true;
     // Check input validity
     if (argc < 2) {
         std::cout << "Enter video file path (..\\OpticalFlow\\data\\Squishies.mp4 if none entered): ";
@@ -42,37 +39,48 @@ int main(int argc, char* argv[]) {
         videoFilePath = argv[1];
     }
 
-    // Create a new `RecordingStream` which sends data over TCP to the viewer process.
-    const rerun::RecordingStream rec = rerun::RecordingStream("OpticalFlow-driverGPU.cu");
-    // Try to spawn a new viewer instance.
-    rerun::Error error = rec.spawn();
+    if (argc > 2) {
+        streamToRerun = false;
+    }
 
-
-    // Create a 1D Gaussian kernel
-    int kernelSizeSmoothing = 25;
-    float sigma = 3.2f;
-    Kernel* gaussianKernel = Kernel::generateGaussian(kernelSizeSmoothing, sigma);
-
-    // Create a 1D Derivative kernel
-    int kernelSizeDerivative = 5;
-    float derivativeKernelArray[] = { 1.0f / 12, -8.0f / 12, 0.0f, 8.0f / 12, -1.0f / 12 };
-    Kernel derivativeKernel(derivativeKernelArray, kernelSizeDerivative);
-    int index = 0;
-
-    // Process frames
-    SpatialConvolution gpuNaiveXY(Implementation::GPU_NAIVE);
-    TemporalConvolution gpuNaiveSmoothT(Implementation::GPU_NAIVE, kernelSizeSmoothing);
-    TemporalConvolution gpuNaiveDerivativeT(Implementation::GPU_NAIVE, kernelSizeDerivative);
-    Mat gpuNaiveSmoothedT, gpuNaiveSmoothedTX, gpuNaiveSmoothedTXY, gpuNaiveI_t, gpuNaiveI_x, gpuNaiveI_y;
-    Mat frame;
-    Mat derivativeDisplay, smoothedDisplay, frameRGBA;
-
+	ofstream resultsFile("results.txt");
     int blockSizes[] = { 1 << 10, 1 << 9, 1 << 8, 1 << 7, 1 << 6, 1 << 5 };
     int numBlockSizes = sizeof(blockSizes) / sizeof(blockSizes[0]);
 
-	ofstream resultsFile("results.txt");
-
     for (int i = 0; i < numBlockSizes; i++) {
+        CudaProfiler profiler = CudaProfiler();
+        LeastSquaresSolver solver;
+        LeastSquaresSolverCUDA solverCUDA;
+
+        // Create a 1D Gaussian kernel
+        int kernelSizeSmoothing = 25;
+        float sigma = 1.2f; //3.2f;
+        Kernel* gaussianKernel = Kernel::generateGaussian(kernelSizeSmoothing, sigma);
+
+        // Create a 1D Derivative kernel
+        int kernelSizeDerivative = 5;
+        float derivativeKernelArray[] = { 1.0f / 12, -8.0f / 12, 0.0f, 8.0f / 12, -1.0f / 12 };
+        Kernel derivativeKernel(derivativeKernelArray, kernelSizeDerivative);
+        int index = 0;
+
+        // Process frames
+        SpatialConvolution gpuNaiveXY(Implementation::GPU_NAIVE);
+        TemporalConvolution gpuNaiveSmoothT(Implementation::GPU_NAIVE, kernelSizeSmoothing);
+        TemporalConvolution gpuNaiveDerivativeT(Implementation::GPU_NAIVE, kernelSizeDerivative);
+        Mat gpuNaiveSmoothedT, gpuNaiveSmoothedTX, gpuNaiveSmoothedTXY, gpuNaiveI_t, gpuNaiveI_x, gpuNaiveI_y;
+        Mat frame;
+        Mat derivativeDisplay, smoothedDisplay, frameRGBA;
+
+        // Create a new `RecordingStream` which sends data over TCP to the viewer process.
+        stringstream name;
+        name << "OpticalFlow-driverGPU_blockSize-" << blockSizes[i] << ".cu";
+        const rerun::RecordingStream rec = rerun::RecordingStream(name.str());
+
+        if (streamToRerun) {
+            // Try to spawn a new viewer instance.
+            rerun::Error error = rec.spawn();
+        }
+
         VideoCapture capture(videoFilePath);
         if (!capture.isOpened()) {
             cerr << "Error: Unable to open video file " << videoFilePath << endl;
@@ -87,61 +95,74 @@ int main(int argc, char* argv[]) {
             // Convert from BGR to RGBA
             cv::cvtColor(frame, frameRGBA, cv::COLOR_BGR2RGBA);
             // Log image to rerun using the tensor buffer adapter defined in `collection_adapters.hpp`.
-            rec.log("0.input", rerun::Image::from_rgba32(frameRGBA, { uint32_t(frameRGBA.cols), uint32_t(frameRGBA.rows) }));
+            if (streamToRerun)
+                rec.log("0.input", rerun::Image::from_rgba32(frameRGBA, { uint32_t(frameRGBA.cols), uint32_t(frameRGBA.rows) }));
 
             // CPU Implementation ---------------------------------------------------------------------
             profiler.startCPUTimer();
             gpuNaiveSmoothedT = gpuNaiveSmoothT.convolve(frame, *gaussianKernel, blockSize);
             if (!gpuNaiveSmoothedT.empty()) {
-                rec.log("1.T.CPUTime", rerun::Scalar(profiler.stopCPUTimer()));
+                if (streamToRerun)
+                    rec.log("1.T.CPUTime", rerun::Scalar(profiler.stopCPUTimer()));
                 normalize(gpuNaiveSmoothedT, smoothedDisplay, 0, 255, cv::NORM_MINMAX);
                 smoothedDisplay.convertTo(smoothedDisplay, CV_8U); // Convert to 8-bit
-                rec.log("1.T", rerun::Image::from_greyscale8(smoothedDisplay, { uint32_t(smoothedDisplay.cols), uint32_t(smoothedDisplay.rows) }));
+                if (streamToRerun)
+                    rec.log("1.T", rerun::Image::from_greyscale8(smoothedDisplay, { uint32_t(smoothedDisplay.cols), uint32_t(smoothedDisplay.rows) }));
             }
 
             profiler.startCPUTimer();
             gpuNaiveSmoothedTX = gpuNaiveXY.convolveX(gpuNaiveSmoothedT, *gaussianKernel, blockSize);
             if (!gpuNaiveSmoothedTX.empty()) {
-                rec.log("2.TX.CPUTime", rerun::Scalar(profiler.stopCPUTimer()));
+                if (streamToRerun)
+                    rec.log("2.TX.CPUTime", rerun::Scalar(profiler.stopCPUTimer()));
                 normalize(gpuNaiveSmoothedTX, smoothedDisplay, 0, 255, cv::NORM_MINMAX);
                 smoothedDisplay.convertTo(smoothedDisplay, CV_8U); // Convert to 8-bit
-                rec.log("2.TX", rerun::Image::from_greyscale8(smoothedDisplay, { uint32_t(smoothedDisplay.cols), uint32_t(smoothedDisplay.rows) }));
+                if (streamToRerun)
+                    rec.log("2.TX", rerun::Image::from_greyscale8(smoothedDisplay, { uint32_t(smoothedDisplay.cols), uint32_t(smoothedDisplay.rows) }));
             }
 
             profiler.startCPUTimer();
             gpuNaiveSmoothedTXY = gpuNaiveXY.convolveY(gpuNaiveSmoothedTX, *gaussianKernel, blockSize);
             if (!gpuNaiveSmoothedTXY.empty()) {
-                rec.log("3.TXY.CPUTime", rerun::Scalar(profiler.stopCPUTimer()));
+                if (streamToRerun)
+                    rec.log("3.TXY.CPUTime", rerun::Scalar(profiler.stopCPUTimer()));
                 normalize(gpuNaiveSmoothedTXY, smoothedDisplay, 0, 255, cv::NORM_MINMAX);
                 smoothedDisplay.convertTo(smoothedDisplay, CV_8U); // Convert to 8-bit
-                rec.log("3.TXY", rerun::Image::from_greyscale8(smoothedDisplay, { uint32_t(smoothedDisplay.cols), uint32_t(smoothedDisplay.rows) }));
+                if (streamToRerun)
+                    rec.log("3.TXY", rerun::Image::from_greyscale8(smoothedDisplay, { uint32_t(smoothedDisplay.cols), uint32_t(smoothedDisplay.rows) }));
             }
 
             profiler.startCPUTimer();
             gpuNaiveI_t = gpuNaiveDerivativeT.convolve(gpuNaiveSmoothedTXY, derivativeKernel, blockSize);
             if (!gpuNaiveI_t.empty()) {
-                rec.log("4.I_t.CPUTime", rerun::Scalar(profiler.stopCPUTimer()));
+                if (streamToRerun)
+                    rec.log("4.I_t.CPUTime", rerun::Scalar(profiler.stopCPUTimer()));
                 normalize(gpuNaiveI_t, derivativeDisplay, 0, 255, cv::NORM_MINMAX);
                 derivativeDisplay.convertTo(derivativeDisplay, CV_8U); // Convert to 8-bit
-                rec.log("4.I_t", rerun::Image::from_greyscale8(derivativeDisplay, { uint32_t(derivativeDisplay.cols), uint32_t(derivativeDisplay.rows) }));
+                if (streamToRerun)
+                    rec.log("4.I_t", rerun::Image::from_greyscale8(derivativeDisplay, { uint32_t(derivativeDisplay.cols), uint32_t(derivativeDisplay.rows) }));
             }
 
             profiler.startCPUTimer();
             gpuNaiveI_x = gpuNaiveXY.convolveX(gpuNaiveSmoothedTXY, derivativeKernel, blockSize);
             if (!gpuNaiveI_x.empty()) {
-                rec.log("5.I_x.CPUTime", rerun::Scalar(profiler.stopCPUTimer()));
+                if (streamToRerun)
+                    rec.log("5.I_x.CPUTime", rerun::Scalar(profiler.stopCPUTimer()));
                 normalize(gpuNaiveI_x, derivativeDisplay, 0, 255, cv::NORM_MINMAX);
                 derivativeDisplay.convertTo(derivativeDisplay, CV_8U); // Convert to 8-bit
-                rec.log("5.I_x", rerun::Image::from_greyscale8(derivativeDisplay, { uint32_t(derivativeDisplay.cols), uint32_t(derivativeDisplay.rows) }));
+                if (streamToRerun)
+                    rec.log("5.I_x", rerun::Image::from_greyscale8(derivativeDisplay, { uint32_t(derivativeDisplay.cols), uint32_t(derivativeDisplay.rows) }));
             }
 
             profiler.startCPUTimer();
             gpuNaiveI_y = gpuNaiveXY.convolveY(gpuNaiveSmoothedTXY, derivativeKernel, blockSize);
             if (!gpuNaiveI_y.empty()) {
-                rec.log("6.I_y.CPUTime", rerun::Scalar(profiler.stopCPUTimer()));
+                if (streamToRerun)
+                    rec.log("6.I_y.CPUTime", rerun::Scalar(profiler.stopCPUTimer()));
                 normalize(gpuNaiveI_y, derivativeDisplay, 0, 255, cv::NORM_MINMAX);
                 derivativeDisplay.convertTo(derivativeDisplay, CV_8U); // Convert to 8-bit
-                rec.log("6.I_y", rerun::Image::from_greyscale8(derivativeDisplay, { uint32_t(derivativeDisplay.cols), uint32_t(derivativeDisplay.rows) }));
+                if (streamToRerun)
+                    rec.log("6.I_y", rerun::Image::from_greyscale8(derivativeDisplay, { uint32_t(derivativeDisplay.cols), uint32_t(derivativeDisplay.rows) }));
             }
 
             Mat flowX = Mat::zeros(uint32_t(gpuNaiveI_x.rows), uint32_t(gpuNaiveI_x.cols), CV_32F);
@@ -162,20 +183,15 @@ int main(int argc, char* argv[]) {
             resultsFile << "I_t Minimum value: " << minVal << " at position " << minLoc << std::endl;
             resultsFile << "I_t Maximum value: " << maxVal << " at position " << maxLoc << std::endl;
 
-            Mat I_x_32F;
-            Mat I_y_32F;
-            Mat I_t_32F;
+            Mat I_x_32F, I_y_32F, I_t_32F;
 
-            normalize(gpuNaiveI_x, I_x_32F, -1, 1, cv::NORM_MINMAX);
-            I_x_32F.convertTo(I_x_32F, CV_32F);
-            normalize(gpuNaiveI_y, I_y_32F, -1, 1, cv::NORM_MINMAX);
-            I_x_32F.convertTo(I_x_32F, CV_32F);
-            normalize(gpuNaiveI_t, I_t_32F, -1, 1, cv::NORM_MINMAX);
-            I_x_32F.convertTo(I_x_32F, CV_32F);
             int index = 0;
             if (!gpuNaiveI_x.empty() && !gpuNaiveI_y.empty() && !gpuNaiveI_t.empty()) {
                 //solver.computeOpticalFlow(I_x_32F, I_y_32F, I_t_32F, flowX, flowY);
+                profiler.startCPUTimer();
                 solverCUDA.computeOpticalFlow(gpuNaiveI_x, gpuNaiveI_y, gpuNaiveI_t, flowX, flowY);
+                if (streamToRerun)
+                    rec.log("6.5.LSF.CPUTime", rerun::Scalar(profiler.stopCPUTimer()));
 
                 imwrite("flowX_" + std::to_string(index) + ".jpg", flowX);
                 imwrite("flowY_" + std::to_string(index) + ".jpg", flowY);
@@ -189,23 +205,24 @@ int main(int argc, char* argv[]) {
                 resultsFile << "flowY Maximum value: " << maxVal << " at position " << maxLoc << std::endl;
 
                 Mat bgr;
-                convertFlowToColorMap(flowX, flowY, bgr);
+                flowToHSV(flowX, flowY, bgr);
 
                 flowX.convertTo(flowX_8u, CV_8U); // Convert to 8-bit
                 flowY.convertTo(flowY_8u, CV_8U); // Convert to 8-bit
 
-                rec.log("7.flowX", rerun::Image::from_greyscale8(flowX_8u, { uint32_t(flowX_8u.cols), uint32_t(flowX_8u.rows) }));
-                rec.log("8.flowY", rerun::Image::from_greyscale8(flowY_8u, { uint32_t(flowY_8u.cols), uint32_t(flowY_8u.rows) }));
-                rec.log("9.OpticalFlow", rerun::Image::from_rgb24(bgr, { uint32_t(bgr.cols), uint32_t(bgr.rows) }));
+                if (streamToRerun) {
+                    rec.log("7.flowX", rerun::Image::from_greyscale8(flowX_8u, { uint32_t(flowX_8u.cols), uint32_t(flowX_8u.rows) }));
+                    rec.log("8.flowY", rerun::Image::from_greyscale8(flowY_8u, { uint32_t(flowY_8u.cols), uint32_t(flowY_8u.rows) }));
+                    rec.log("9.OpticalFlow", rerun::Image::from_rgb24(bgr, { uint32_t(bgr.cols), uint32_t(bgr.rows) }));
+                }
                 index++;
             }
         }
         capture.release();
+
+        // Cleanup
+        delete gaussianKernel;
+        gaussianKernel = nullptr;
     }
-
-    // Cleanup
-    delete gaussianKernel;
-    gaussianKernel = nullptr;
-
     return 0;
 }

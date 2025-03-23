@@ -67,12 +67,17 @@ int main(int argc, char* argv[]) {
     Mat frame;
     Mat derivativeDisplay, smoothedDisplay, frameRGBA;
 
-    int blockSizes[] = { 1 << 10, 1 << 9, 1 << 8, 1 << 7, 1 << 6, 1 << 5 };
+    //int blockSizes[] = { 1 << 10, 1 << 9, 1 << 8, 1 << 7, 1 << 6, 1 << 5 };
+    int blockSizes[] = { 1 << 10 };
     int numBlockSizes = sizeof(blockSizes) / sizeof(blockSizes[0]);
 
 	ofstream resultsFile("results.txt");
 
     for (int i = 0; i < numBlockSizes; i++) {
+        stringstream name;
+        name << "driverGPUSharedMem_blockSize-" << blockSizes[i];
+        const rerun::RecordingStream rec = rerun::RecordingStream(name.str());
+
         VideoCapture capture(videoFilePath);
         if (!capture.isOpened()) {
             cerr << "Error: Unable to open video file " << videoFilePath << endl;
@@ -195,9 +200,7 @@ int main(int argc, char* argv[]) {
                 resultsFile << "flowY Maximum value: " << maxVal << " at position " << maxLoc << std::endl;
 
                 Mat bgr;
-
-                convertFlowToColorMap(flowX*2, flowY*2, bgr);
-
+                flowToHSV(flowX, flowY, bgr);
 
                 flowX.convertTo(flowX_8u, CV_8U); // Convert to 8-bit
                 flowY.convertTo(flowY_8u, CV_8U); // Convert to 8-bit

@@ -4,7 +4,7 @@
  * Converts optical flow vectors (flowX, flowY) to a color-coded visualization using HSV color mapping.
  * The resulting image uses hue to represent direction and value (brightness) to represent magnitude.
  */
-cv::Mat convertFlowToColorMap(const cv::Mat& flowX, const cv::Mat& flowY, cv::Mat& bgr) {
+cv::Mat flowToHSV(const cv::Mat& flowX, const cv::Mat& flowY, cv::Mat& bgr) {
     // Convert the algorithm's output into Polar coordinates
     cv::Mat magnitude, angle, magn_norm;
     cv::cartToPolar(flowX, flowY, magnitude, angle, true);

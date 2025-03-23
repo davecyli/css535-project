@@ -43,7 +43,7 @@ int main(int argc, char* argv[]) {
     }
 
     // Create a new `RecordingStream` which sends data over TCP to the viewer process.
-    const rerun::RecordingStream rec = rerun::RecordingStream("OpticalFlow");
+    const rerun::RecordingStream rec = rerun::RecordingStream("OpticalFlow-driverCPU");
     // Try to spawn a new viewer instance.
     rerun::Error error = rec.spawn();
 
@@ -157,16 +157,18 @@ int main(int argc, char* argv[]) {
         Mat I_y_32F;
         Mat I_t_32F;
 
-        normalize(cpuI_x, I_x_32F, -1, 1, cv::NORM_MINMAX);
+        /*normalize(cpuI_x, I_x_32F, -1, 1, cv::NORM_MINMAX);
         I_x_32F.convertTo(I_x_32F, CV_32F);
         normalize(cpuI_y, I_y_32F, -1, 1, cv::NORM_MINMAX);
         I_x_32F.convertTo(I_x_32F, CV_32F);
         normalize(cpuI_t, I_t_32F, -1, 1, cv::NORM_MINMAX);
-        I_x_32F.convertTo(I_x_32F, CV_32F);
+        I_x_32F.convertTo(I_x_32F, CV_32F);*/
         int index = 0;
         if (!cpuI_x.empty() && !cpuI_y.empty() && !cpuI_t.empty()) {
-            //solver.computeOpticalFlow(I_x_32F, I_y_32F, I_t_32F, flowX, flowY);
-			solverCUDA.computeOpticalFlow(cpuI_x, cpuI_y, cpuI_t, flowX, flowY);
+            profiler.startCPUTimer();
+            solver.computeOpticalFlow(cpuI_x, cpuI_y, cpuI_t, flowX, flowY);
+            rec.log("6.5.LSF.CPUTime", rerun::Scalar(profiler.stopCPUTimer()));
+			/*solverCUDA.computeOpticalFlow(cpuI_x, cpuI_y, cpuI_t, flowX, flowY);*/
 
             imwrite("flowX_" + std::to_string(index) + ".jpg", flowX);
             imwrite("flowY_" + std::to_string(index) + ".jpg", flowY);
@@ -180,13 +182,13 @@ int main(int argc, char* argv[]) {
             resultsFile << "flowY Maximum value: " << maxVal << " at position " << maxLoc << std::endl;
 
             Mat bgr;
-            convertFlowToColorMap(flowX, flowY, bgr);
+            flowToHSV(flowX, flowY, bgr);
 
             flowX.convertTo(flowX_8u, CV_8U); // Convert to 8-bit
             flowY.convertTo(flowY_8u, CV_8U); // Convert to 8-bit
 
-            rec.log("&.flowX", rerun::Image::from_greyscale8(flowX_8u, { uint32_t(flowX_8u.cols), uint32_t(flowX_8u.rows) }));
-            rec.log("&.flowY", rerun::Image::from_greyscale8(flowY_8u, { uint32_t(flowY_8u.cols), uint32_t(flowY_8u.rows) }));
+            rec.log("7.flowX", rerun::Image::from_greyscale8(flowX_8u, { uint32_t(flowX_8u.cols), uint32_t(flowX_8u.rows) }));
+            rec.log("8.flowY", rerun::Image::from_greyscale8(flowY_8u, { uint32_t(flowY_8u.cols), uint32_t(flowY_8u.rows) }));
             rec.log("9.OpticalFlow", rerun::Image::from_rgb24(bgr, { uint32_t(bgr.cols), uint32_t(bgr.rows) }));
             index++;
         }
