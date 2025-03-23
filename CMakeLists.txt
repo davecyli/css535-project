@@ -70,12 +70,6 @@ FetchContent_MakeAvailable(rerun_sdk)
 find_package (Eigen3 3.3 REQUIRED NO_MODULE)
 include_directories(${EIGEN_INCLUDE_DIR})
 
-### OPENCV Combination Driver Project
-add_executable(driver OpticalFlow/driver.cu ${MAIN_SOURCES} ${MAIN_HEADERS})
-set_target_properties(driver PROPERTIES CUDA_SEPARABLE_COMPILATION ON EXCLUDE_FROM_ALL ON)  # Exclude from ALL_BUILD
-target_compile_options(driver PRIVATE -Xcompiler "/EHsc /Zi /Ob0")
-target_link_libraries(driver ${OpenCV_LIBS} rerun_sdk Eigen3::Eigen)
-
 ### OPENCV CPU Driver Project
 add_executable(driverCPU OpticalFlow/driverCPU.cu ${MAIN_SOURCES} ${MAIN_HEADERS})
 set_target_properties(driverCPU PROPERTIES CUDA_SEPARABLE_COMPILATION ON EXCLUDE_FROM_ALL ON)  # Exclude from ALL_BUILD
@@ -114,12 +108,6 @@ set(OPENCV_DLLS
     "${OpenCV_DIR}/x64/vc16/bin/opencv_videoio_msmf4110_64.dll"
     "${OpenCV_DIR}/x64/vc16/bin/opencv_videoio_msmf4110_64d.dll"
 )
-
-foreach(DLL ${OPENCV_DLLS})
-    add_custom_command(TARGET driver POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${DLL}" $<TARGET_FILE_DIR:driver>
-    )
-endforeach()
 
 foreach(DLL ${OPENCV_DLLS})
     add_custom_command(TARGET driverCPU POST_BUILD

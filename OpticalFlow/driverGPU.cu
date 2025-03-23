@@ -1,10 +1,11 @@
-/*
-
-Changes to make prior to GPU implementation
-* Investigate transposing Y prior to convolve for cache locality
-* Use cv::cuda::GpuMat instead of cv::Mat
-
-*/
+/* -----------------------------------------------------------------------------
+Alanna Koser, David Li, Jonah Kolar
+CSS 535 A
+March 23, 2025
+Final Project: Optical Flow
+Description:
+CUDA kernel implementations for GPU only
+----------------------------------------------------------------------------- */
 #include "collection_adapters.hpp"
 #include "profiler.h"
 #include "least_squares_solver.h"
@@ -54,7 +55,7 @@ int main(int argc, char* argv[]) {
 
         // Create a 1D Gaussian kernel
         int kernelSizeSmoothing = 25;
-        float sigma = 1.2f; //3.2f;
+        float sigma = 3.2f; //3.2f;
         Kernel* gaussianKernel = Kernel::generateGaussian(kernelSizeSmoothing, sigma);
 
         // Create a 1D Derivative kernel
@@ -88,7 +89,7 @@ int main(int argc, char* argv[]) {
         }
         while (capture.read(frame)) {
 
-            // GPU Implementation ---------------------------------------------------------------------
+            // GPU Implementation ----------------------------------------------
             int blockSize = blockSizes[i];
 
             // Display original image
@@ -98,7 +99,6 @@ int main(int argc, char* argv[]) {
             if (streamToRerun)
                 rec.log("0.input", rerun::Image::from_rgba32(frameRGBA, { uint32_t(frameRGBA.cols), uint32_t(frameRGBA.rows) }));
 
-            // CPU Implementation ---------------------------------------------------------------------
             profiler.startCPUTimer();
             gpuNaiveSmoothedT = gpuNaiveSmoothT.convolve(frame, *gaussianKernel, blockSize);
             if (!gpuNaiveSmoothedT.empty()) {
@@ -187,8 +187,8 @@ int main(int argc, char* argv[]) {
 
             int index = 0;
             if (!gpuNaiveI_x.empty() && !gpuNaiveI_y.empty() && !gpuNaiveI_t.empty()) {
-                //solver.computeOpticalFlow(I_x_32F, I_y_32F, I_t_32F, flowX, flowY);
-                profiler.startCPUTimer();
+                if (streamToRerun)
+                    profiler.startCPUTimer();
                 solverCUDA.computeOpticalFlow(gpuNaiveI_x, gpuNaiveI_y, gpuNaiveI_t, flowX, flowY);
                 if (streamToRerun)
                     rec.log("6.5.LSF.CPUTime", rerun::Scalar(profiler.stopCPUTimer()));

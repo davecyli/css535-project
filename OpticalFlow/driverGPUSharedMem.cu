@@ -1,10 +1,11 @@
-/*
-
-Changes to make prior to GPU implementation
-* Investigate transposing Y prior to convolve for cache locality
-* Use cv::cuda::GpuMat instead of cv::Mat
-
-*/
+/* -----------------------------------------------------------------------------
+Alanna Koser, David Li, Jonah Kolar
+CSS 535 A
+March 23, 2025
+Final Project: Optical Flow
+Description:
+CUDA kernel implementations for GPU w/ Shared Memory only
+----------------------------------------------------------------------------- */
 #include "collection_adapters.hpp"
 #include "profiler.h"
 #include "least_squares_solver.h"
@@ -26,11 +27,8 @@ using namespace cv;
 
 
 int main(int argc, char* argv[]) {
-    CudaProfiler profiler = CudaProfiler();
-    LeastSquaresSolver solver;
-	LeastSquaresSolverCUDA solverCUDA;
-
     string videoFilePath = "";
+    bool streamToRerun = true;
     // Check input validity
     if (argc < 2) {
         std::cout << "Enter video file path (..\\OpticalFlow\\data\\Squishies.mp4 if none entered): ";
@@ -38,45 +36,57 @@ int main(int argc, char* argv[]) {
         if (videoFilePath == "") {
             videoFilePath = "..\\OpticalFlow\\data\\Squishies.mp4";
         }
-    } else {
+    }
+    else {
         videoFilePath = argv[1];
     }
 
-    // Create a new `RecordingStream` which sends data over TCP to the viewer process.
-    const rerun::RecordingStream rec = rerun::RecordingStream("OpticalFlow-driverGPUSharedMem.cu");
-    // Try to spawn a new viewer instance.
-    rerun::Error error = rec.spawn();
+    if (argc > 2) {
+        streamToRerun = false;
+    }
 
-    // Create a 1D Gaussian kernel
-    int kernelSizeSmoothing = 25;
-    float sigma = 3.2f;
-    Kernel* gaussianKernel = Kernel::generateGaussian(kernelSizeSmoothing, sigma);
-
-    // Create a 1D Derivative kernel
-    int kernelSizeDerivative = 5;
-    float derivativeKernelArray[] = { 1.0f / 12, -8.0f / 12, 0.0f, 8.0f / 12, -1.0f / 12 };
-    Kernel derivativeKernel(derivativeKernelArray, kernelSizeDerivative);
-    int index = 0;
-
-    // Process frames
-    SpatialConvolution gpuSharedMemXY(Implementation::GPU_SHARED_MEMORY);
-    TemporalConvolution gpuSharedMemSmoothT(Implementation::GPU_SHARED_MEMORY, kernelSizeSmoothing);
-    TemporalConvolution gpuSharedMemDerivativeT(Implementation::GPU_SHARED_MEMORY, kernelSizeDerivative);
-    Mat gpuSharedMemSmoothedT, gpuSharedMemSmoothedTX, gpuSharedMemSmoothedTXY,
-        gpuSharedMemI_t, gpuSharedMemI_x, gpuSharedMemI_y;
-    Mat frame;
-    Mat derivativeDisplay, smoothedDisplay, frameRGBA;
-
-    //int blockSizes[] = { 1 << 10, 1 << 9, 1 << 8, 1 << 7, 1 << 6, 1 << 5 };
-    int blockSizes[] = { 1 << 10 };
+    ofstream resultsFile("results.txt");
+    int blockSizes[] = { 1 << 10, 1 << 9, 1 << 8, 1 << 7, 1 << 6, 1 << 5 };
     int numBlockSizes = sizeof(blockSizes) / sizeof(blockSizes[0]);
 
-	ofstream resultsFile("results.txt");
-
     for (int i = 0; i < numBlockSizes; i++) {
+        CudaProfiler profiler = CudaProfiler();
+        LeastSquaresSolver solver;
+        LeastSquaresSolverCUDA solverCUDA;
+
+        // Create a 1D Gaussian kernel
+        int kernelSizeSmoothing = 25;
+        float sigma = 3.2f; //
+        Kernel* gaussianKernel = Kernel::generateGaussian(kernelSizeSmoothing, sigma);
+
+        // Create a 1D Derivative kernel
+        int kernelSizeDerivative = 5;
+        float derivativeKernelArray[] = { 1.0f / 12, -8.0f / 12, 0.0f, 8.0f / 12, -1.0f / 12 };
+        Kernel derivativeKernel(derivativeKernelArray, kernelSizeDerivative);
+        int index = 0;
+
+        // Process frames
+        SpatialConvolution gpuSharedMemXY(Implementation::GPU_SHARED_MEMORY);
+        TemporalConvolution gpuSharedMemSmoothT(Implementation::GPU_SHARED_MEMORY,
+            kernelSizeSmoothing);
+        TemporalConvolution gpuSharedMemDerivativeT(Implementation::GPU_SHARED_MEMORY,
+            kernelSizeDerivative);
+
+        Mat gpuSharedMemSmoothedT, gpuSharedMemSmoothedTX, gpuSharedMemSmoothedTXY,
+            gpuSharedMemI_t, gpuSharedMemI_x, gpuSharedMemI_y;
+
+        Mat frame;
+        Mat derivativeDisplay, smoothedDisplay, frameRGBA;
+
+        // Create a new `RecordingStream` which sends data over TCP to the viewer process.
         stringstream name;
-        name << "driverGPUSharedMem_blockSize-" << blockSizes[i];
+        name << "driverGPUSharedMem_blockSize-" << blockSizes[i] << ".cu";
         const rerun::RecordingStream rec = rerun::RecordingStream(name.str());
+
+        if (streamToRerun) {
+            // Try to spawn a new viewer instance.
+            rerun::Error error = rec.spawn();
+        }
 
         VideoCapture capture(videoFilePath);
         if (!capture.isOpened()) {
@@ -85,83 +95,120 @@ int main(int argc, char* argv[]) {
         }
         while (capture.read(frame)) {
 
-            // GPU Implementation ---------------------------------------------------------------------
+            // GPU Implementation ----------------------------------------------
             int blockSize = blockSizes[i];
-
             int maxBlockSizeT = 1 << 8;
+
             // Display original image
             // Convert from BGR to RGBA
             cv::cvtColor(frame, frameRGBA, cv::COLOR_BGR2RGBA);
             // Log image to rerun using the tensor buffer adapter defined in `collection_adapters.hpp`.
-            rec.log("0.input", rerun::Image::from_rgba32(frameRGBA, { uint32_t(frameRGBA.cols), uint32_t(frameRGBA.rows) }));
+            if (streamToRerun)
+                rec.log("0.input", rerun::Image::from_rgba32(
+                    frameRGBA, { uint32_t(frameRGBA.cols), uint32_t(frameRGBA.rows) }));
 
-            // GPU Implementation ---------------------------------------------------------------------
             profiler.startCPUTimer();
             if (blockSize > maxBlockSizeT) {
-                gpuSharedMemSmoothedT = gpuSharedMemSmoothT.convolve(frame, *gaussianKernel, maxBlockSizeT);
+                gpuSharedMemSmoothedT = gpuSharedMemSmoothT.convolve(
+                    frame, *gaussianKernel, maxBlockSizeT);
                 if (!gpuSharedMemSmoothedT.empty()) {
-                    rec.log("1.T.CPUTime", rerun::Scalar(profiler.stopCPUTimer()));
+                    if (streamToRerun)
+                        rec.log("1.T.CPUTime", rerun::Scalar(profiler.stopCPUTimer()));
                     normalize(gpuSharedMemSmoothedT, smoothedDisplay, 0, 255, cv::NORM_MINMAX);
                     smoothedDisplay.convertTo(smoothedDisplay, CV_8U); // Convert to 8-bit
-                    rec.log("1.T", rerun::Image::from_greyscale8(smoothedDisplay, { uint32_t(smoothedDisplay.cols), uint32_t(smoothedDisplay.rows) }));
+                    if (streamToRerun)
+                        rec.log("1.T", rerun::Image::from_greyscale8(
+                            smoothedDisplay,
+                            { uint32_t(smoothedDisplay.cols), uint32_t(smoothedDisplay.rows) }));
                 }
             }
             else {
-                gpuSharedMemSmoothedT = gpuSharedMemSmoothT.convolve(frame, *gaussianKernel, blockSize);
+                gpuSharedMemSmoothedT = gpuSharedMemSmoothT.convolve(
+                    frame, *gaussianKernel, blockSize);
                 if (!gpuSharedMemSmoothedT.empty()) {
-                    rec.log("1.T.CPUTime", rerun::Scalar(profiler.stopCPUTimer()));
+                    if (streamToRerun)
+                        rec.log("1.T.CPUTime", rerun::Scalar(profiler.stopCPUTimer()));
                     normalize(gpuSharedMemSmoothedT, smoothedDisplay, 0, 255, cv::NORM_MINMAX);
                     smoothedDisplay.convertTo(smoothedDisplay, CV_8U); // Convert to 8-bit
-                    rec.log("1.T", rerun::Image::from_greyscale8(smoothedDisplay, { uint32_t(smoothedDisplay.cols), uint32_t(smoothedDisplay.rows) }));
+                    if (streamToRerun)
+                        rec.log("1.T", rerun::Image::from_greyscale8(
+                            smoothedDisplay,
+                            { uint32_t(smoothedDisplay.cols), uint32_t(smoothedDisplay.rows) }));
                 }
             }
 
             profiler.startCPUTimer();
-            gpuSharedMemSmoothedTX = gpuSharedMemXY.convolveX(gpuSharedMemSmoothedT, *gaussianKernel, blockSize);
+            gpuSharedMemSmoothedTX = gpuSharedMemXY.convolveX(
+                gpuSharedMemSmoothedT, *gaussianKernel, blockSize);
             if (!gpuSharedMemSmoothedTX.empty()) {
-                rec.log("2.TX.CPUTime", rerun::Scalar(profiler.stopCPUTimer()));
+                if (streamToRerun)
+                    rec.log("2.TX.CPUTime", rerun::Scalar(profiler.stopCPUTimer()));
                 normalize(gpuSharedMemSmoothedTX, smoothedDisplay, 0, 255, cv::NORM_MINMAX);
                 smoothedDisplay.convertTo(smoothedDisplay, CV_8U); // Convert to 8-bit
-                rec.log("2.TX", rerun::Image::from_greyscale8(smoothedDisplay, { uint32_t(smoothedDisplay.cols), uint32_t(smoothedDisplay.rows) }));
+                if (streamToRerun)
+                    rec.log("2.TX", rerun::Image::from_greyscale8(
+                        smoothedDisplay,
+                        { uint32_t(smoothedDisplay.cols), uint32_t(smoothedDisplay.rows) }));
             }
 
             profiler.startCPUTimer();
-            gpuSharedMemSmoothedTXY = gpuSharedMemXY.convolveY(gpuSharedMemSmoothedTX, *gaussianKernel, blockSize);
+            gpuSharedMemSmoothedTXY = gpuSharedMemXY.convolveY(
+                gpuSharedMemSmoothedTX, *gaussianKernel, blockSize);
             if (!gpuSharedMemSmoothedTXY.empty()) {
-                rec.log("3.TXY.CPUTime", rerun::Scalar(profiler.stopCPUTimer()));
+                if (streamToRerun)
+                    rec.log("3.TXY.CPUTime", rerun::Scalar(profiler.stopCPUTimer()));
                 normalize(gpuSharedMemSmoothedTXY, smoothedDisplay, 0, 255, cv::NORM_MINMAX);
                 smoothedDisplay.convertTo(smoothedDisplay, CV_8U); // Convert to 8-bit
-                rec.log("3.TXY", rerun::Image::from_greyscale8(smoothedDisplay, { uint32_t(smoothedDisplay.cols), uint32_t(smoothedDisplay.rows) }));
+                if (streamToRerun)
+                    rec.log("3.TXY", rerun::Image::from_greyscale8(
+                        smoothedDisplay,
+                        { uint32_t(smoothedDisplay.cols), uint32_t(smoothedDisplay.rows) }));
             }
 
             profiler.startCPUTimer();
-            gpuSharedMemI_t = gpuSharedMemDerivativeT.convolve(gpuSharedMemSmoothedTXY, derivativeKernel, blockSize);
+            gpuSharedMemI_t = gpuSharedMemDerivativeT.convolve(
+                gpuSharedMemSmoothedTXY, derivativeKernel, blockSize);
             if (!gpuSharedMemI_t.empty()) {
-                rec.log("4.I_t.CPUTime", rerun::Scalar(profiler.stopCPUTimer()));
+                if (streamToRerun)
+                    rec.log("4.I_t.CPUTime", rerun::Scalar(profiler.stopCPUTimer()));
                 normalize(gpuSharedMemI_t, derivativeDisplay, 0, 255, cv::NORM_MINMAX);
                 derivativeDisplay.convertTo(derivativeDisplay, CV_8U); // Convert to 8-bit
-                rec.log("4.I_t", rerun::Image::from_greyscale8(derivativeDisplay, { uint32_t(derivativeDisplay.cols), uint32_t(derivativeDisplay.rows) }));
+                if (streamToRerun)
+                    rec.log("4.I_t", rerun::Image::from_greyscale8(
+                        derivativeDisplay,
+                        { uint32_t(derivativeDisplay.cols), uint32_t(derivativeDisplay.rows) }));
 
             }
 
             profiler.startCPUTimer();
-            gpuSharedMemI_x = gpuSharedMemXY.convolveX(gpuSharedMemSmoothedTXY, derivativeKernel, blockSize);
+            gpuSharedMemI_x = gpuSharedMemXY.convolveX(
+                gpuSharedMemSmoothedTXY, derivativeKernel, blockSize);
             if (!gpuSharedMemI_x.empty()) {
-                rec.log("5.I_x.CPUTime", rerun::Scalar(profiler.stopCPUTimer()));
+                if (streamToRerun)
+                    rec.log("5.I_x.CPUTime", rerun::Scalar(profiler.stopCPUTimer()));
                 normalize(gpuSharedMemI_x, derivativeDisplay, 0, 255, cv::NORM_MINMAX);
                 derivativeDisplay.convertTo(derivativeDisplay, CV_8U); // Convert to 8-bit
-                rec.log("5.I_x", rerun::Image::from_greyscale8(derivativeDisplay, { uint32_t(derivativeDisplay.cols), uint32_t(derivativeDisplay.rows) }));
+                if (streamToRerun)
+                    rec.log("5.I_x", rerun::Image::from_greyscale8(
+                        derivativeDisplay,
+                        { uint32_t(derivativeDisplay.cols), uint32_t(derivativeDisplay.rows) }));
 
             }
 
             profiler.startCPUTimer();
-            gpuSharedMemI_y = gpuSharedMemXY.convolveY(gpuSharedMemSmoothedTXY, derivativeKernel, blockSize);
+            gpuSharedMemI_y = gpuSharedMemXY.convolveY(
+                gpuSharedMemSmoothedTXY, derivativeKernel, blockSize);
             if (!gpuSharedMemI_y.empty()) {
-                rec.log("6.I_y.CPUTime", rerun::Scalar(profiler.stopCPUTimer()));
+                if (streamToRerun)
+                    rec.log("6.I_y.CPUTime", rerun::Scalar(profiler.stopCPUTimer()));
                 normalize(gpuSharedMemI_y, derivativeDisplay, 0, 255, cv::NORM_MINMAX);
                 derivativeDisplay.convertTo(derivativeDisplay, CV_8U); // Convert to 8-bit
-                rec.log("6.I_y", rerun::Image::from_greyscale8(derivativeDisplay, { uint32_t(derivativeDisplay.cols), uint32_t(derivativeDisplay.rows) }));
+                if (streamToRerun)
+                    rec.log("6.I_y", rerun::Image::from_greyscale8(
+                        derivativeDisplay,
+                        { uint32_t(derivativeDisplay.cols), uint32_t(derivativeDisplay.rows) }));
             }
+
 
             Mat flowX = Mat::zeros(uint32_t(gpuSharedMemI_x.rows), uint32_t(gpuSharedMemI_x.cols), CV_32F);
             Mat flowY = Mat::zeros(uint32_t(gpuSharedMemI_x.rows), uint32_t(gpuSharedMemI_x.cols), CV_32F);
@@ -186,10 +233,11 @@ int main(int argc, char* argv[]) {
             int index = 0;
             if (!gpuSharedMemI_x.empty() && !gpuSharedMemI_y.empty() && !gpuSharedMemI_t.empty()) {
                 //solver.computeOpticalFlow(I_x_32F, I_y_32F, I_t_32F, flowX, flowY);
+                if (streamToRerun)
+                    profiler.startCPUTimer();
                 solverCUDA.computeOpticalFlow(gpuSharedMemI_x, gpuSharedMemI_y, gpuSharedMemI_t, flowX, flowY);
-
-                imwrite("flowX_" + std::to_string(index) + ".jpg", flowX);
-                imwrite("flowY_" + std::to_string(index) + ".jpg", flowY);
+                if (streamToRerun)
+                    rec.log("6.5.LSF.CPUTime", rerun::Scalar(profiler.stopCPUTimer()));
 
                 cv::minMaxLoc(flowX, &minVal, &maxVal, &minLoc, &maxLoc);
                 resultsFile << "flowX Minimum value: " << minVal << " at position " << minLoc << std::endl;
@@ -205,18 +253,19 @@ int main(int argc, char* argv[]) {
                 flowX.convertTo(flowX_8u, CV_8U); // Convert to 8-bit
                 flowY.convertTo(flowY_8u, CV_8U); // Convert to 8-bit
 
-                rec.log("7.flowX", rerun::Image::from_greyscale8(flowX_8u, { uint32_t(flowX_8u.cols), uint32_t(flowX_8u.rows) }));
-                rec.log("8.flowY", rerun::Image::from_greyscale8(flowY_8u, { uint32_t(flowY_8u.cols), uint32_t(flowY_8u.rows) }));
-                rec.log("9.OpticalFlow", rerun::Image::from_rgb24(bgr, { uint32_t(bgr.cols), uint32_t(bgr.rows) }));
+                if (streamToRerun) {
+                    rec.log("7.flowX", rerun::Image::from_greyscale8(flowX_8u, { uint32_t(flowX_8u.cols), uint32_t(flowX_8u.rows) }));
+                    rec.log("8.flowY", rerun::Image::from_greyscale8(flowY_8u, { uint32_t(flowY_8u.cols), uint32_t(flowY_8u.rows) }));
+                    rec.log("9.OpticalFlow", rerun::Image::from_rgb24(bgr, { uint32_t(bgr.cols), uint32_t(bgr.rows) }));
+                }
                 index++;
             }
         }
         capture.release();
+
+        // Cleanup
+        delete gaussianKernel;
+        gaussianKernel = nullptr;
     }
-
-    // Cleanup
-    delete gaussianKernel;
-    gaussianKernel = nullptr;
-
     return 0;
 }

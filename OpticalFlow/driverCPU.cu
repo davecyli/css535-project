@@ -1,10 +1,11 @@
-/*
-
-Changes to make prior to GPU implementation
-* Investigate transposing Y prior to convolve for cache locality
-* Use cv::cuda::GpuMat instead of cv::Mat
-
-*/
+/* -----------------------------------------------------------------------------
+Alanna Koser, David Li, Jonah Kolar
+CSS 535 A
+March 23, 2025
+Final Project: Optical Flow
+Description:
+CUDA kernel implementations for CPU only
+----------------------------------------------------------------------------- */
 #include "collection_adapters.hpp"
 #include "least_squares_solver.h"
 #include "least_squares_solver_cuda.h"
@@ -80,7 +81,7 @@ int main(int argc, char* argv[]) {
         // Log image to rerun using the tensor buffer adapter defined in `collection_adapters.hpp`.
         rec.log("0.input", rerun::Image::from_rgba32(frameRGBA, { uint32_t(frameRGBA.cols), uint32_t(frameRGBA.rows) }));
 
-        // CPU Implementation ---------------------------------------------------------------------
+        // CPU Implementation --------------------------------------------------
         profiler.startCPUTimer();
         cpuSmoothedT = cpuSmoothT.convolve(frame, *gaussianKernel);
         if (!cpuSmoothedT.empty()) {
@@ -157,18 +158,11 @@ int main(int argc, char* argv[]) {
         Mat I_y_32F;
         Mat I_t_32F;
 
-        /*normalize(cpuI_x, I_x_32F, -1, 1, cv::NORM_MINMAX);
-        I_x_32F.convertTo(I_x_32F, CV_32F);
-        normalize(cpuI_y, I_y_32F, -1, 1, cv::NORM_MINMAX);
-        I_x_32F.convertTo(I_x_32F, CV_32F);
-        normalize(cpuI_t, I_t_32F, -1, 1, cv::NORM_MINMAX);
-        I_x_32F.convertTo(I_x_32F, CV_32F);*/
         int index = 0;
         if (!cpuI_x.empty() && !cpuI_y.empty() && !cpuI_t.empty()) {
             profiler.startCPUTimer();
             solver.computeOpticalFlow(cpuI_x, cpuI_y, cpuI_t, flowX, flowY);
             rec.log("6.5.LSF.CPUTime", rerun::Scalar(profiler.stopCPUTimer()));
-			/*solverCUDA.computeOpticalFlow(cpuI_x, cpuI_y, cpuI_t, flowX, flowY);*/
 
             imwrite("flowX_" + std::to_string(index) + ".jpg", flowX);
             imwrite("flowY_" + std::to_string(index) + ".jpg", flowY);
@@ -198,7 +192,6 @@ int main(int argc, char* argv[]) {
     delete gaussianKernel;
     gaussianKernel = nullptr;
     capture.release();
-    //destroyAllWindows();
 
     return 0;
 }
