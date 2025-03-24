@@ -55,8 +55,8 @@ int main(int argc, char* argv[]) {
         LeastSquaresSolverCUDA solverCUDA;
 
         // Create a 1D Gaussian kernel
-        int kernelSizeSmoothing = 25;
-        float sigma = 3.2f;
+        int kernelSizeSmoothing = 16;
+        float sigma = 0.8f;
         Kernel* gaussianKernel = Kernel::generateGaussian(kernelSizeSmoothing, sigma);
 
         // Create a 1D Derivative kernel
@@ -195,8 +195,14 @@ int main(int argc, char* argv[]) {
                 Mat bgr;
                 flowToHSV(flowX, flowY, bgr);
 
+                Mat bgr_pow;
+
+                cv::multiply(bgr, bgr, bgr_pow);
+
                 flowX.convertTo(flowX_8u, CV_8U); // Convert to 8-bit
                 flowY.convertTo(flowY_8u, CV_8U); // Convert to 8-bit
+
+
 
                 if (streamToRerun) {
                     rec.log("7.flowX", rerun::Image::from_greyscale8(flowX_8u,
@@ -205,7 +211,7 @@ int main(int argc, char* argv[]) {
                     rec.log("8.flowY", rerun::Image::from_greyscale8(flowY_8u,
                         { uint32_t(flowY_8u.cols), uint32_t(flowY_8u.rows) })
                     );
-                    rec.log("9.OpticalFlow", rerun::Image::from_rgb24(bgr,
+                    rec.log("9.OpticalFlow", rerun::Image::from_rgb24(bgr_pow,
                         { uint32_t(bgr.cols), uint32_t(bgr.rows) })
                     );
                 }

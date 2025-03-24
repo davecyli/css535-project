@@ -2,8 +2,8 @@
 Alanna Koser, David Li, Jonah Kolar
 CSS 535 A
 March 23, 2025
-
 Final Project: Optical Flow
+
 Description:
 CUDA kernel implementations for CPU only
 ----------------------------------------------------------------------------- */
