@@ -49,7 +49,8 @@ pixi run start
 This will configure, build and execute from within a reproducible environment. At the end of the script a test executable will run to test connection to your rerun installation and ensure it is in your windows environment path variables.
 
 ## Visual Studio Solution
-The OpticalFlow.sln file is in the .build folder: .\css535-project\.build
+The OpticalFlow.sln file is in the .build folder: .\css535-project\\.build
+
 Three main projects:
 - driverCPU - Contains the CPU implementation
 - driverGPU - Contains the GPU Naive implementation
