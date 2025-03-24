@@ -61,6 +61,7 @@ Set the mode to Release then build and run in Visual Studio.
 When running the projects with no command line arguments provided, the application will request a path to a video file.
 Please enter a path without quotes to specify a video or enter nothing which will use the default Squishies.mp4 located in the relative path
 
+# Miscellaneous
 
 ## To test profiler
 - Open a `Visual Studio 2022 Developer Command Prompt`
