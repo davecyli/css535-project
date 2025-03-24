@@ -24,8 +24,8 @@ README.md.txt
 ## Rerun
 Rerun is a multimodal data logger and visualizer. This will accelerate the way we observe and analyze our data
 
-## Setting up Rerun
-### Command Line
+### Setting up Rerun
+#### Command Line
 - Navigate to assets at this link https://github.com/rerun-io/rerun/releases/
 - Download the executable `rerun-cli-0.22.1-x86_64-pc-windows-msvc.exe` or similar to a folder such as `C:\\bin`
 - Rename executable to `rerun.exe`
