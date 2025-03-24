@@ -34,7 +34,7 @@ Rerun is a multimodal data logger and visualizer. This will accelerate the way w
 ## Pixi package management
 - Pixi is a package management tool for developers and allows developers to install libraries and applications in a reproducible way.
 
-## Installing Pixi
+### Installing Pixi
 Run this script in a command prompt
 ```
 powershell -ExecutionPolicy ByPass -c "irm -useb https://pixi.sh/install.ps1 | iex"
@@ -55,7 +55,7 @@ Three main projects:
 - driverGPU - Contains the GPU Naive implementation
 - driverGPUSharedMem - Contains the GPU Optimized implementation
 
-## Running the Implementations
+### Running the Implementations
 Set the mode to Release then build and run in Visual Studio.
 When running the projects with no command line arguments provided, the application will request a path to a video file.
 Please enter a path without quotes to specify a video or enter nothing which will use the default Squishies.mp4 located in the relative path
