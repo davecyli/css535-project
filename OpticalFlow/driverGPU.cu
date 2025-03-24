@@ -3,6 +3,7 @@ Alanna Koser, David Li, Jonah Kolar
 CSS 535 A
 March 23, 2025
 Final Project: Optical Flow
+
 Description:
 CUDA kernel implementations for GPU only
 ----------------------------------------------------------------------------- */
@@ -55,7 +56,7 @@ int main(int argc, char* argv[]) {
 
         // Create a 1D Gaussian kernel
         int kernelSizeSmoothing = 25;
-        float sigma = 3.2f; //3.2f;
+        float sigma = 3.2f;
         Kernel* gaussianKernel = Kernel::generateGaussian(kernelSizeSmoothing, sigma);
 
         // Create a 1D Derivative kernel
@@ -97,7 +98,8 @@ int main(int argc, char* argv[]) {
             cv::cvtColor(frame, frameRGBA, cv::COLOR_BGR2RGBA);
             // Log image to rerun using the tensor buffer adapter defined in `collection_adapters.hpp`.
             if (streamToRerun)
-                rec.log("0.input", rerun::Image::from_rgba32(frameRGBA, { uint32_t(frameRGBA.cols), uint32_t(frameRGBA.rows) }));
+                rec.log("0.input", rerun::Image::from_rgba32(frameRGBA,
+                    { uint32_t(frameRGBA.cols), uint32_t(frameRGBA.rows) }));
 
             profiler.startCPUTimer();
             gpuNaiveSmoothedT = gpuNaiveSmoothT.convolve(frame, *gaussianKernel, blockSize);
@@ -107,7 +109,8 @@ int main(int argc, char* argv[]) {
                 normalize(gpuNaiveSmoothedT, smoothedDisplay, 0, 255, cv::NORM_MINMAX);
                 smoothedDisplay.convertTo(smoothedDisplay, CV_8U); // Convert to 8-bit
                 if (streamToRerun)
-                    rec.log("1.T", rerun::Image::from_greyscale8(smoothedDisplay, { uint32_t(smoothedDisplay.cols), uint32_t(smoothedDisplay.rows) }));
+                    rec.log("1.T", rerun::Image::from_greyscale8(smoothedDisplay,
+                        { uint32_t(smoothedDisplay.cols), uint32_t(smoothedDisplay.rows) }));
             }
 
             profiler.startCPUTimer();
@@ -118,7 +121,8 @@ int main(int argc, char* argv[]) {
                 normalize(gpuNaiveSmoothedTX, smoothedDisplay, 0, 255, cv::NORM_MINMAX);
                 smoothedDisplay.convertTo(smoothedDisplay, CV_8U); // Convert to 8-bit
                 if (streamToRerun)
-                    rec.log("2.TX", rerun::Image::from_greyscale8(smoothedDisplay, { uint32_t(smoothedDisplay.cols), uint32_t(smoothedDisplay.rows) }));
+                    rec.log("2.TX", rerun::Image::from_greyscale8(smoothedDisplay,
+                        { uint32_t(smoothedDisplay.cols), uint32_t(smoothedDisplay.rows) }));
             }
 
             profiler.startCPUTimer();
@@ -129,7 +133,8 @@ int main(int argc, char* argv[]) {
                 normalize(gpuNaiveSmoothedTXY, smoothedDisplay, 0, 255, cv::NORM_MINMAX);
                 smoothedDisplay.convertTo(smoothedDisplay, CV_8U); // Convert to 8-bit
                 if (streamToRerun)
-                    rec.log("3.TXY", rerun::Image::from_greyscale8(smoothedDisplay, { uint32_t(smoothedDisplay.cols), uint32_t(smoothedDisplay.rows) }));
+                    rec.log("3.TXY", rerun::Image::from_greyscale8(smoothedDisplay,
+                        { uint32_t(smoothedDisplay.cols), uint32_t(smoothedDisplay.rows) }));
             }
 
             profiler.startCPUTimer();
@@ -140,7 +145,8 @@ int main(int argc, char* argv[]) {
                 normalize(gpuNaiveI_t, derivativeDisplay, 0, 255, cv::NORM_MINMAX);
                 derivativeDisplay.convertTo(derivativeDisplay, CV_8U); // Convert to 8-bit
                 if (streamToRerun)
-                    rec.log("4.I_t", rerun::Image::from_greyscale8(derivativeDisplay, { uint32_t(derivativeDisplay.cols), uint32_t(derivativeDisplay.rows) }));
+                    rec.log("4.I_t", rerun::Image::from_greyscale8(derivativeDisplay,
+                        { uint32_t(derivativeDisplay.cols), uint32_t(derivativeDisplay.rows) }));
             }
 
             profiler.startCPUTimer();
@@ -151,7 +157,8 @@ int main(int argc, char* argv[]) {
                 normalize(gpuNaiveI_x, derivativeDisplay, 0, 255, cv::NORM_MINMAX);
                 derivativeDisplay.convertTo(derivativeDisplay, CV_8U); // Convert to 8-bit
                 if (streamToRerun)
-                    rec.log("5.I_x", rerun::Image::from_greyscale8(derivativeDisplay, { uint32_t(derivativeDisplay.cols), uint32_t(derivativeDisplay.rows) }));
+                    rec.log("5.I_x", rerun::Image::from_greyscale8(derivativeDisplay,
+                        { uint32_t(derivativeDisplay.cols), uint32_t(derivativeDisplay.rows) }));
             }
 
             profiler.startCPUTimer();
@@ -162,26 +169,18 @@ int main(int argc, char* argv[]) {
                 normalize(gpuNaiveI_y, derivativeDisplay, 0, 255, cv::NORM_MINMAX);
                 derivativeDisplay.convertTo(derivativeDisplay, CV_8U); // Convert to 8-bit
                 if (streamToRerun)
-                    rec.log("6.I_y", rerun::Image::from_greyscale8(derivativeDisplay, { uint32_t(derivativeDisplay.cols), uint32_t(derivativeDisplay.rows) }));
+                    rec.log("6.I_y", rerun::Image::from_greyscale8(derivativeDisplay,
+                        { uint32_t(derivativeDisplay.cols), uint32_t(derivativeDisplay.rows) }));
             }
 
-            Mat flowX = Mat::zeros(uint32_t(gpuNaiveI_x.rows), uint32_t(gpuNaiveI_x.cols), CV_32F);
-            Mat flowY = Mat::zeros(uint32_t(gpuNaiveI_x.rows), uint32_t(gpuNaiveI_x.cols), CV_32F);
-            Mat flowX_8u = Mat::zeros(uint32_t(gpuNaiveI_x.rows), uint32_t(gpuNaiveI_x.cols), CV_8U);
-            Mat flowY_8u = Mat::zeros(uint32_t(gpuNaiveI_y.rows), uint32_t(gpuNaiveI_y.cols), CV_8U);
-
-            double minVal, maxVal;
-            cv::Point minLoc, maxLoc;
-
-            cv::minMaxLoc(gpuNaiveI_x, &minVal, &maxVal, &minLoc, &maxLoc);
-            resultsFile << "I_x Minimum value: " << minVal << " at position " << minLoc << std::endl;
-            resultsFile << "I_x Maximum value: " << maxVal << " at position " << maxLoc << std::endl;
-            cv::minMaxLoc(gpuNaiveI_y, &minVal, &maxVal, &minLoc, &maxLoc);
-            resultsFile << "I_y Minimum value: " << minVal << " at position " << minLoc << std::endl;
-            resultsFile << "I_y Maximum value: " << maxVal << " at position " << maxLoc << std::endl;
-            cv::minMaxLoc(gpuNaiveI_t, &minVal, &maxVal, &minLoc, &maxLoc);
-            resultsFile << "I_t Minimum value: " << minVal << " at position " << minLoc << std::endl;
-            resultsFile << "I_t Maximum value: " << maxVal << " at position " << maxLoc << std::endl;
+            Mat flowX = Mat::zeros(uint32_t(gpuNaiveI_x.rows),
+                                   uint32_t(gpuNaiveI_x.cols), CV_32F);
+            Mat flowY = Mat::zeros(uint32_t(gpuNaiveI_x.rows),
+                                   uint32_t(gpuNaiveI_x.cols), CV_32F);
+            Mat flowX_8u = Mat::zeros(uint32_t(gpuNaiveI_x.rows),
+                                      uint32_t(gpuNaiveI_x.cols), CV_8U);
+            Mat flowY_8u = Mat::zeros(uint32_t(gpuNaiveI_y.rows),
+                                      uint32_t(gpuNaiveI_y.cols), CV_8U);
 
             Mat I_x_32F, I_y_32F, I_t_32F;
 
@@ -193,17 +192,6 @@ int main(int argc, char* argv[]) {
                 if (streamToRerun)
                     rec.log("6.5.LSF.CPUTime", rerun::Scalar(profiler.stopCPUTimer()));
 
-                imwrite("flowX_" + std::to_string(index) + ".jpg", flowX);
-                imwrite("flowY_" + std::to_string(index) + ".jpg", flowY);
-
-                cv::minMaxLoc(flowX, &minVal, &maxVal, &minLoc, &maxLoc);
-                resultsFile << "flowX Minimum value: " << minVal << " at position " << minLoc << std::endl;
-                resultsFile << "flowX Maximum value: " << maxVal << " at position " << maxLoc << std::endl;
-
-                cv::minMaxLoc(flowY, &minVal, &maxVal, &minLoc, &maxLoc);
-                resultsFile << "flowY Minimum value: " << minVal << " at position " << minLoc << std::endl;
-                resultsFile << "flowY Maximum value: " << maxVal << " at position " << maxLoc << std::endl;
-
                 Mat bgr;
                 flowToHSV(flowX, flowY, bgr);
 
@@ -211,9 +199,15 @@ int main(int argc, char* argv[]) {
                 flowY.convertTo(flowY_8u, CV_8U); // Convert to 8-bit
 
                 if (streamToRerun) {
-                    rec.log("7.flowX", rerun::Image::from_greyscale8(flowX_8u, { uint32_t(flowX_8u.cols), uint32_t(flowX_8u.rows) }));
-                    rec.log("8.flowY", rerun::Image::from_greyscale8(flowY_8u, { uint32_t(flowY_8u.cols), uint32_t(flowY_8u.rows) }));
-                    rec.log("9.OpticalFlow", rerun::Image::from_rgb24(bgr, { uint32_t(bgr.cols), uint32_t(bgr.rows) }));
+                    rec.log("7.flowX", rerun::Image::from_greyscale8(flowX_8u,
+                        { uint32_t(flowX_8u.cols), uint32_t(flowX_8u.rows) })
+                    );
+                    rec.log("8.flowY", rerun::Image::from_greyscale8(flowY_8u,
+                        { uint32_t(flowY_8u.cols), uint32_t(flowY_8u.rows) })
+                    );
+                    rec.log("9.OpticalFlow", rerun::Image::from_rgb24(bgr,
+                        { uint32_t(bgr.cols), uint32_t(bgr.rows) })
+                    );
                 }
                 index++;
             }

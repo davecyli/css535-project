@@ -3,6 +3,7 @@ Alanna Koser, David Li, Jonah Kolar
 CSS 535 A
 March 23, 2025
 Final Project: Optical Flow
+
 Description:
 CUDA kernel implementations for GPU w/ Shared Memory only
 ----------------------------------------------------------------------------- */
@@ -206,46 +207,29 @@ int main(int argc, char* argv[]) {
                 if (streamToRerun)
                     rec.log("6.I_y", rerun::Image::from_greyscale8(
                         derivativeDisplay,
-                        { uint32_t(derivativeDisplay.cols), uint32_t(derivativeDisplay.rows) }));
+                        { uint32_t(derivativeDisplay.cols), uint32_t(derivativeDisplay.rows) })
+                    );
             }
 
 
-            Mat flowX = Mat::zeros(uint32_t(gpuSharedMemI_x.rows), uint32_t(gpuSharedMemI_x.cols), CV_32F);
-            Mat flowY = Mat::zeros(uint32_t(gpuSharedMemI_x.rows), uint32_t(gpuSharedMemI_x.cols), CV_32F);
-            Mat flowX_8u = Mat::zeros(uint32_t(gpuSharedMemI_x.rows), uint32_t(gpuSharedMemI_x.cols), CV_8U);
-            Mat flowY_8u = Mat::zeros(uint32_t(gpuSharedMemI_y.rows), uint32_t(gpuSharedMemI_y.cols), CV_8U);
-
-            double minVal, maxVal;
-            cv::Point minLoc, maxLoc;
-
-            cv::minMaxLoc(gpuSharedMemI_x, &minVal, &maxVal, &minLoc, &maxLoc);
-            resultsFile << "I_x Minimum value: " << minVal << " at position " << minLoc << std::endl;
-            resultsFile << "I_x Maximum value: " << maxVal << " at position " << maxLoc << std::endl;
-            cv::minMaxLoc(gpuSharedMemI_y, &minVal, &maxVal, &minLoc, &maxLoc);
-            resultsFile << "I_y Minimum value: " << minVal << " at position " << minLoc << std::endl;
-            resultsFile << "I_y Maximum value: " << maxVal << " at position " << maxLoc << std::endl;
-            cv::minMaxLoc(gpuSharedMemI_t, &minVal, &maxVal, &minLoc, &maxLoc);
-            resultsFile << "I_t Minimum value: " << minVal << " at position " << minLoc << std::endl;
-            resultsFile << "I_t Maximum value: " << maxVal << " at position " << maxLoc << std::endl;
+            Mat flowX = Mat::zeros(uint32_t(gpuSharedMemI_x.rows),
+                                   uint32_t(gpuSharedMemI_x.cols), CV_32F);
+            Mat flowY = Mat::zeros(uint32_t(gpuSharedMemI_x.rows),
+                                   uint32_t(gpuSharedMemI_x.cols), CV_32F);
+            Mat flowX_8u = Mat::zeros(uint32_t(gpuSharedMemI_x.rows),
+                                      uint32_t(gpuSharedMemI_x.cols), CV_8U);
+            Mat flowY_8u = Mat::zeros(uint32_t(gpuSharedMemI_y.rows),
+                                      uint32_t(gpuSharedMemI_y.cols), CV_8U);
 
             Mat I_x_32F, I_y_32F, I_t_32F;
 
             int index = 0;
             if (!gpuSharedMemI_x.empty() && !gpuSharedMemI_y.empty() && !gpuSharedMemI_t.empty()) {
-                //solver.computeOpticalFlow(I_x_32F, I_y_32F, I_t_32F, flowX, flowY);
                 if (streamToRerun)
                     profiler.startCPUTimer();
                 solverCUDA.computeOpticalFlow(gpuSharedMemI_x, gpuSharedMemI_y, gpuSharedMemI_t, flowX, flowY);
                 if (streamToRerun)
                     rec.log("6.5.LSF.CPUTime", rerun::Scalar(profiler.stopCPUTimer()));
-
-                cv::minMaxLoc(flowX, &minVal, &maxVal, &minLoc, &maxLoc);
-                resultsFile << "flowX Minimum value: " << minVal << " at position " << minLoc << std::endl;
-                resultsFile << "flowX Maximum value: " << maxVal << " at position " << maxLoc << std::endl;
-
-                cv::minMaxLoc(flowY, &minVal, &maxVal, &minLoc, &maxLoc);
-                resultsFile << "flowY Minimum value: " << minVal << " at position " << minLoc << std::endl;
-                resultsFile << "flowY Maximum value: " << maxVal << " at position " << maxLoc << std::endl;
 
                 Mat bgr;
                 flowToHSV(flowX, flowY, bgr);
@@ -254,9 +238,15 @@ int main(int argc, char* argv[]) {
                 flowY.convertTo(flowY_8u, CV_8U); // Convert to 8-bit
 
                 if (streamToRerun) {
-                    rec.log("7.flowX", rerun::Image::from_greyscale8(flowX_8u, { uint32_t(flowX_8u.cols), uint32_t(flowX_8u.rows) }));
-                    rec.log("8.flowY", rerun::Image::from_greyscale8(flowY_8u, { uint32_t(flowY_8u.cols), uint32_t(flowY_8u.rows) }));
-                    rec.log("9.OpticalFlow", rerun::Image::from_rgb24(bgr, { uint32_t(bgr.cols), uint32_t(bgr.rows) }));
+                    rec.log("7.flowX", rerun::Image::from_greyscale8(flowX_8u,
+                        { uint32_t(flowX_8u.cols), uint32_t(flowX_8u.rows) })
+                    );
+                    rec.log("8.flowY", rerun::Image::from_greyscale8(flowY_8u,
+                        { uint32_t(flowY_8u.cols), uint32_t(flowY_8u.rows) })
+                    );
+                    rec.log("9.OpticalFlow", rerun::Image::from_rgb24(bgr,
+                        { uint32_t(bgr.cols), uint32_t(bgr.rows) })
+                    );
                 }
                 index++;
             }

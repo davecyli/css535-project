@@ -2,6 +2,7 @@
 Alanna Koser, David Li, Jonah Kolar
 CSS 535 A
 March 23, 2025
+
 Final Project: Optical Flow
 Description:
 CUDA kernel implementations for CPU only
@@ -30,6 +31,7 @@ int main(int argc, char* argv[]) {
     CudaProfiler profiler = CudaProfiler();
     LeastSquaresSolver solver;
 	LeastSquaresSolverCUDA solverCUDA;
+    bool streamToRerun = true;
 
     string videoFilePath = "";
     // Check input validity
@@ -41,6 +43,10 @@ int main(int argc, char* argv[]) {
         }
     } else {
         videoFilePath = argv[1];
+    }
+
+    if (argc > 2) {
+        streamToRerun = false;
     }
 
     // Create a new `RecordingStream` which sends data over TCP to the viewer process.
@@ -79,7 +85,8 @@ int main(int argc, char* argv[]) {
         // Convert from BGR to RGBA
         cv::cvtColor(frame, frameRGBA, cv::COLOR_BGR2RGBA);
         // Log image to rerun using the tensor buffer adapter defined in `collection_adapters.hpp`.
-        rec.log("0.input", rerun::Image::from_rgba32(frameRGBA, { uint32_t(frameRGBA.cols), uint32_t(frameRGBA.rows) }));
+        rec.log("0.input", rerun::Image::from_rgba32(frameRGBA,
+            { uint32_t(frameRGBA.cols), uint32_t(frameRGBA.rows) }));
 
         // CPU Implementation --------------------------------------------------
         profiler.startCPUTimer();
@@ -88,7 +95,8 @@ int main(int argc, char* argv[]) {
             rec.log("1.T.CPUTime", rerun::Scalar(profiler.stopCPUTimer()));
             normalize(cpuSmoothedT, smoothedDisplay, 0, 255, cv::NORM_MINMAX);
             smoothedDisplay.convertTo(smoothedDisplay, CV_8U); // Convert to 8-bit
-            rec.log("1.T", rerun::Image::from_greyscale8(smoothedDisplay, { uint32_t(smoothedDisplay.cols), uint32_t(smoothedDisplay.rows) }));
+            rec.log("1.T", rerun::Image::from_greyscale8(smoothedDisplay,
+                { uint32_t(smoothedDisplay.cols), uint32_t(smoothedDisplay.rows) }));
         }
 
         profiler.startCPUTimer();
@@ -97,7 +105,8 @@ int main(int argc, char* argv[]) {
             rec.log("2.TX.CPUTime", rerun::Scalar(profiler.stopCPUTimer()));
             normalize(cpuSmoothedTX, smoothedDisplay, 0, 255, cv::NORM_MINMAX);
             smoothedDisplay.convertTo(smoothedDisplay, CV_8U); // Convert to 8-bit
-            rec.log("2.TX", rerun::Image::from_greyscale8(smoothedDisplay, { uint32_t(smoothedDisplay.cols), uint32_t(smoothedDisplay.rows) }));
+            rec.log("2.TX", rerun::Image::from_greyscale8(smoothedDisplay,
+                { uint32_t(smoothedDisplay.cols), uint32_t(smoothedDisplay.rows) }));
         }
 
         profiler.startCPUTimer();
@@ -106,7 +115,8 @@ int main(int argc, char* argv[]) {
             rec.log("3.TXY.CPUTime", rerun::Scalar(profiler.stopCPUTimer()));
             normalize(cpuSmoothedTXY, smoothedDisplay, 0, 255, cv::NORM_MINMAX);
             smoothedDisplay.convertTo(smoothedDisplay, CV_8U); // Convert to 8-bit
-            rec.log("3.TXY", rerun::Image::from_greyscale8(smoothedDisplay, { uint32_t(smoothedDisplay.cols), uint32_t(smoothedDisplay.rows) }));
+            rec.log("3.TXY", rerun::Image::from_greyscale8(smoothedDisplay,
+                { uint32_t(smoothedDisplay.cols), uint32_t(smoothedDisplay.rows) }));
         }
 
         profiler.startCPUTimer();
@@ -115,7 +125,8 @@ int main(int argc, char* argv[]) {
             rec.log("4.I_t.CPUTime", rerun::Scalar(profiler.stopCPUTimer()));
             normalize(cpuI_t, derivativeDisplay, 0, 255, cv::NORM_MINMAX);
             derivativeDisplay.convertTo(derivativeDisplay, CV_8U); // Convert to 8-bit
-            rec.log("4.I_t", rerun::Image::from_greyscale8(derivativeDisplay, { uint32_t(derivativeDisplay.cols), uint32_t(derivativeDisplay.rows) }));
+            rec.log("4.I_t", rerun::Image::from_greyscale8(derivativeDisplay,
+                { uint32_t(derivativeDisplay.cols), uint32_t(derivativeDisplay.rows) }));
         }
 
         profiler.startCPUTimer();
@@ -124,7 +135,8 @@ int main(int argc, char* argv[]) {
             rec.log("5.I_x.CPUTime", rerun::Scalar(profiler.stopCPUTimer()));
             normalize(cpuI_x, derivativeDisplay, 0, 255, cv::NORM_MINMAX);
             derivativeDisplay.convertTo(derivativeDisplay, CV_8U); // Convert to 8-bit
-            rec.log("5.I_x", rerun::Image::from_greyscale8(derivativeDisplay, { uint32_t(derivativeDisplay.cols), uint32_t(derivativeDisplay.rows) }));
+            rec.log("5.I_x", rerun::Image::from_greyscale8(derivativeDisplay,
+                { uint32_t(derivativeDisplay.cols), uint32_t(derivativeDisplay.rows) }));
         }
 
         profiler.startCPUTimer();
@@ -133,7 +145,8 @@ int main(int argc, char* argv[]) {
             rec.log("6.I_y.CPUTime", rerun::Scalar(profiler.stopCPUTimer()));
             normalize(cpuI_y, derivativeDisplay, 0, 255, cv::NORM_MINMAX);
             derivativeDisplay.convertTo(derivativeDisplay, CV_8U); // Convert to 8-bit
-            rec.log("6.I_y", rerun::Image::from_greyscale8(derivativeDisplay, { uint32_t(derivativeDisplay.cols), uint32_t(derivativeDisplay.rows) }));
+            rec.log("6.I_y", rerun::Image::from_greyscale8(derivativeDisplay,
+                { uint32_t(derivativeDisplay.cols), uint32_t(derivativeDisplay.rows) }));
         }
 
         Mat flowX = Mat::zeros(uint32_t(cpuI_x.rows), uint32_t(cpuI_x.cols), CV_32F);
@@ -141,22 +154,7 @@ int main(int argc, char* argv[]) {
         Mat flowX_8u = Mat::zeros(uint32_t(cpuI_x.rows), uint32_t(cpuI_x.cols), CV_8U);
         Mat flowY_8u = Mat::zeros(uint32_t(cpuI_y.rows), uint32_t(cpuI_y.cols), CV_8U);
 
-        double minVal, maxVal;
-        cv::Point minLoc, maxLoc;
-
-        cv::minMaxLoc(cpuI_x, &minVal, &maxVal, &minLoc, &maxLoc);
-        resultsFile << "I_x Minimum value: " << minVal << " at position " << minLoc << std::endl;
-        resultsFile << "I_x Maximum value: " << maxVal << " at position " << maxLoc << std::endl;
-        cv::minMaxLoc(cpuI_y, &minVal, &maxVal, &minLoc, &maxLoc);
-        resultsFile << "I_y Minimum value: " << minVal << " at position " << minLoc << std::endl;
-        resultsFile << "I_y Maximum value: " << maxVal << " at position " << maxLoc << std::endl;
-        cv::minMaxLoc(cpuI_t, &minVal, &maxVal, &minLoc, &maxLoc);
-        resultsFile << "I_t Minimum value: " << minVal << " at position " << minLoc << std::endl;
-        resultsFile << "I_t Maximum value: " << maxVal << " at position " << maxLoc << std::endl;
-
-        Mat I_x_32F;
-        Mat I_y_32F;
-        Mat I_t_32F;
+        Mat I_x_32F, I_y_32F, I_t_32F;
 
         int index = 0;
         if (!cpuI_x.empty() && !cpuI_y.empty() && !cpuI_t.empty()) {
@@ -164,26 +162,18 @@ int main(int argc, char* argv[]) {
             solver.computeOpticalFlow(cpuI_x, cpuI_y, cpuI_t, flowX, flowY);
             rec.log("6.5.LSF.CPUTime", rerun::Scalar(profiler.stopCPUTimer()));
 
-            imwrite("flowX_" + std::to_string(index) + ".jpg", flowX);
-            imwrite("flowY_" + std::to_string(index) + ".jpg", flowY);
-
-            cv::minMaxLoc(flowX, &minVal, &maxVal, &minLoc, &maxLoc);
-            resultsFile << "flowX Minimum value: " << minVal << " at position " << minLoc << std::endl;
-            resultsFile << "flowX Maximum value: " << maxVal << " at position " << maxLoc << std::endl;
-
-            cv::minMaxLoc(flowY, &minVal, &maxVal, &minLoc, &maxLoc);
-            resultsFile << "flowY Minimum value: " << minVal << " at position " << minLoc << std::endl;
-            resultsFile << "flowY Maximum value: " << maxVal << " at position " << maxLoc << std::endl;
-
             Mat bgr;
             flowToHSV(flowX, flowY, bgr);
 
             flowX.convertTo(flowX_8u, CV_8U); // Convert to 8-bit
             flowY.convertTo(flowY_8u, CV_8U); // Convert to 8-bit
 
-            rec.log("7.flowX", rerun::Image::from_greyscale8(flowX_8u, { uint32_t(flowX_8u.cols), uint32_t(flowX_8u.rows) }));
-            rec.log("8.flowY", rerun::Image::from_greyscale8(flowY_8u, { uint32_t(flowY_8u.cols), uint32_t(flowY_8u.rows) }));
-            rec.log("9.OpticalFlow", rerun::Image::from_rgb24(bgr, { uint32_t(bgr.cols), uint32_t(bgr.rows) }));
+            rec.log("7.flowX", rerun::Image::from_greyscale8(flowX_8u,
+                { uint32_t(flowX_8u.cols), uint32_t(flowX_8u.rows) }));
+            rec.log("8.flowY", rerun::Image::from_greyscale8(flowY_8u,
+                { uint32_t(flowY_8u.cols), uint32_t(flowY_8u.rows) }));
+            rec.log("9.OpticalFlow", rerun::Image::from_rgb24(bgr,
+                { uint32_t(bgr.cols), uint32_t(bgr.rows) }));
             index++;
         }
     }
